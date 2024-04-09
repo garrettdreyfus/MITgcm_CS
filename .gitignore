@@ -1,0 +1,6 @@
+pics/
+analysis/data
+*.mp4
+*.png
+analysis/*.mat
+experiments/

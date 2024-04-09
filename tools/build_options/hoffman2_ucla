@@ -1,0 +1,18 @@
+##Specify compilers
+FC=/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/bin/intel64/ifort
+#FC=/u/local/compilers/intel-cs/2013.0.028/composer_xe/bin/intel64/ifort
+DEFINES='-DALLOW_USE_MPI -DALWAYS_USE_MPI -DWORDLENGTH=4'
+CPP='/lib/cpp -traditional -P'
+#CPP=/u/local/compilers/intel-cs/2013.0.028/mpi/intel64/bin/icc
+EXTENDED_SRC_FLAG='-132'
+### Using impi
+INCLUDEDIRS="/usr/include"
+INCLUDES="-I/usr/include -I/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/mpi/intel64/include"
+#INCLUDES="-I/usr/include -I/u/local/compilers/intel-cs/2013.0.028/mpi/intel64/include"
+#LIBS='-ldl -lmpi -lmpifort -lpthread -lrt -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/mpi/intel64/lib -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/mpi/intel64/modulefiles -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/compiler/lib/intel64_lin -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/compiler/lib'
+LIBS='-ldl -lmpi -lmpifort -lpthread -lrt -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/mpi/intel64/lib -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/mpi/intel64/modulefiles -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/compiler/lib/intel64_lin -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/compiler/lib -L/u/local/compilers/intel/2020.4/compilers_and_libraries_2020.4.304/linux/mpi/intel64/lib/release'
+#LIBS='-ldl -lmpi -lmpigf -lmpigi -lpthread -lrt -L/u/local/compilers/intel-cs/2013.0.028/mpi/intel64/lib'
+#### Flags
+NOOPTFLAGS='-O2'
+FFLAGS="$FFLAGS -W0 -WB -msse2 -convert big_endian -assume byterecl -mcmodel=medium"
+FOPTIM='-O2 -align -ip'
