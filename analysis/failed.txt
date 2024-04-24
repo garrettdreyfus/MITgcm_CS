@@ -1,3 +1,0 @@
-/home/garrett/Projects/MITgcm_ISC/experiments/widthexp-GLIB-explore-32/at0w250/results 6.0
-/home/garrett/Projects/MITgcm_ISC/experiments/icefront-64/at125y100/results EMPTY
-/home/garrett/Projects/MITgcm_ISC/experiments/icefront-64/at0y100/results EMPTY

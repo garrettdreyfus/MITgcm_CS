@@ -497,27 +497,18 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
   %%% measurements. We need these because the KN climatology only goes down
   %%% to 2000m
   %s_bot = 34.7;
-  if experiment_parameters.hydro_mode == 'warm'
-      s_bot = 34.65;
-      pt_bot = -0.5;
-      s_mid = 34.67;
-      pt_mid = 1;
-      s_surf = 34.15;
-      pt_surf = -1.8;
-  else 
-      s_bot = 34.8;
-      pt_bot = -1.5;
-      s_mid = 34.5;
-      pt_mid = -1.5;
-      s_surf = 34.2;
-      pt_surf = -1.5;
-  end
+  s_bot = 34.8;
+  %s_bot = 37;
+  pt_bot = -1.5;
+  s_mid = 34.5;
+  pt_mid = -1.5;
+  s_surf = 34.2;
+  pt_surf = -1.5;
   Zsml = -50;
   % above -600
   % at -1000
   % at -1500
   
-  %Zcdw_pt_shelf = HUB+experiment_parameters.tcline_atshelf_depth; %%% CDW depth over the shelf
   Zcdw_pt_shelf = HUB+experiment_parameters.tcline_atshelf_depth; %%% CDW depth over the shelf
 
   Zcdw_pt_South = Zcdw_pt_shelf + experiment_parameters.tcline_deltaz; %%% CDW depth at the southern boundary

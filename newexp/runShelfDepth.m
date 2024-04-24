@@ -8,11 +8,10 @@ function runShelfDepthCheck()
   rng_seed = 16;
   experiment_parameters.rng_seed = rng_seed;
   experiment_parameters.random_amplitude = 200;
-  experiment_parameters.saltflux = true;
+  experiment_parameters.saltflux = false;
   experiment_parameters.rbcs_temp = false;
   experiment_parameters.cavity_depth = -300;
   experiment_parameters.cavity_width = 150;
-  experiment_parameters.hydro_mode = 'warm';
   experiment_parameters.yicefront = 150;
   currentFolder = pwd;
   shelf_depths = [ 500 600 700];
@@ -20,7 +19,7 @@ function runShelfDepthCheck()
     d = shelf_depths(i);
     experiment_parameters.shelf_depth = d;
     experiment_parameters.tcline_atshelf_depth = 0;
-    path_part1 = convertStringsToChars(strcat("experiments/sfwarm",int2str(rng_seed),"/"));
+    path_part1 = convertStringsToChars(strcat("experiments/shelfdepth-16-fix",int2str(rng_seed),"/"));
     path_part2 = convertStringsToChars(strcat("d",int2str(d)));
     full_path = convertStringsToChars(strcat("../",path_part1,path_part2));
     newexp(path_part1,path_part2,experiment_parameters);
