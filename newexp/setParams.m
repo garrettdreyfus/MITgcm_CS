@@ -23,7 +23,7 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
   %%%%%%%%%%%%%%%%%%      
   
   %%% If set true, plots of prescribed variables will be shown
-  showplots = true;      
+  showplots = false;      
   fignum = 1;
   fontsize = 12;
   
@@ -224,7 +224,7 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
   %%% file IO stuff
   parm01.addParm('readBinaryPrec',64,PARM_INT);
   parm01.addParm('useSingleCpuIO',true,PARM_BOOL);
-  parm01.addParm('debugLevel',-1,PARM_INT);
+  parm01.addParm('debugLevel',1,PARM_INT);
   %%% Wet-point method at boundaries - may improve boundary stability
   parm01.addParm('useJamartWetPoints',true,PARM_BOOL);
   parm01.addParm('useJamartMomAdv',true,PARM_BOOL);
@@ -795,26 +795,21 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
   hydroSa = ones(Nx,Ny,Nr);
 
 
-  if isfield(experiment_parameters,'initial_state') && experiment_parameters.initial_state == "cold"
     for k=1:1:Nr
 	hydroTh(:,:,k) = squeeze(hydroTh(:,:,k))*tNorth(k);
 	hydroSa(:,:,k) = squeeze(hydroSa(:,:,k))*sNorth(k);
     end
-  else
-    for k=1:1:Nr
-	hydroTh(:,:,k) = squeeze(hydroTh(:,:,k))*tNorth(k);
-	hydroSa(:,:,k) = squeeze(hydroSa(:,:,k))*sNorth(k);
-    end
-  end
-
-  for ix=1:Nx
-      for iy=1:Ny
-              if yy(iy) < Yicefront
-                      hydroTh(ix,iy,:) = tNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(pt_bot-tNorth);
-                      hydroSa(ix,iy,:) = sNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(s_bot-sNorth);
-              end
+  if (isfield(experiment_parameters,'initial_state') && experiment_parameters.initial_state == "cold")
+      for ix=1:Nx
+          for iy=1:Ny
+                  if yy(iy) < Yicefront
+                          hydroTh(ix,iy,:) = tNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(pt_surf-tNorth);
+                          hydroSa(ix,iy,:) = sNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(s_surf-sNorth);
+                  end
+          end
       end
   end
+        
 
   %%% Add some random noise  
   hydroTh = hydroTh + tNoise*(2*rand(Nx,Ny,Nr)-1);
@@ -1381,13 +1376,13 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
 
     %%%%%%%%%%%%% SALINITY SETTINGS %%%%%%%%%%%%%%%%5
     useRBCsalt = false;
-    tauRelaxS = t1day/4.0;
+    tauRelaxS = 0.25*t1hour;
     %%% For initial conditions
     srelaxvalsFile = 'srelaxvals.bin';
     %%% Align initial temp with background
     srelaxvals = zeros(Nx,Ny,Nr);
 
-    srelaxvals(relaxmask==1) = 34.8;
+    srelaxvals(relaxmask==1) = 35.05;
 
     writeDataset(srelaxvals,fullfile(inputpath,srelaxvalsFile),ieee,prec); 
 
@@ -1397,12 +1392,12 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
     writeDataset(relaxmask,fullfile(inputpath,relaxmaskFile),ieee,prec); 
 
     rbcs_parm01.addParm('useRBCtemp',useRBCtemp,PARM_BOOL)
-    rbcs_parm01.addParm('useRBCsalt',useRBCsalt,PARM_BOOL)
+    %rbcs_parm01.addParm('useRBCsalt',useRBCsalt,PARM_BOOL)
     rbcs_parm01.addParm('tauRelaxT',tauRelaxT,PARM_REAL)
-    rbcs_parm01.addParm('tauRelaxS',tauRelaxS,PARM_REAL)
+    %rbcs_parm01.addParm('tauRelaxS',tauRelaxS,PARM_REAL)
     rbcs_parm01.addParm('relaxMaskFile',relaxmaskFile,PARM_STR)
     rbcs_parm01.addParm('relaxTFile',trelaxvalsFile,PARM_STR)
-    rbcs_parm01.addParm('relaxSFile',srelaxvalsFile,PARM_STR)
+    %rbcs_parm01.addParm('relaxSFile',srelaxvalsFile,PARM_STR)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%% WRITE THE 'data.seaice' FILE %%%
