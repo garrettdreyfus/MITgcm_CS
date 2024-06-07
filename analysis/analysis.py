@@ -89,10 +89,12 @@ def FStheory(fname,xval,include_stats=False):
     hub = GLIBfromFile(matVarsFile(fname))
 
     #We care about the mean of the model output
+    print(len(data["ts"]))
+    print(len(data["gprime"]))
     for k in data.keys():
         if k != "ts":
             try:
-                data[k] = np.nanmean(data[k][data["ts"]>2.5])
+                data[k] = np.nanmean(data[k][data["ts"]>9])
             except:
                 data[k]=np.nan
 
@@ -113,6 +115,7 @@ def FStheory(fname,xval,include_stats=False):
 
     ## Grab temperature at HUB depth
     Tcdw = intTemp(hub,fname)
+    #Tcdw = (data["tcdw"]+2)
 
     ## ice shelf slope
     ices = slope(fname)
@@ -142,13 +145,15 @@ def FStheory(fname,xval,include_stats=False):
     rhoi = 910
     Cp = 4186
     If = 334000
+    #gprime_ext = data["gprime"]
     stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
+    print(stats)
     if not include_stats:
-        #return Tcdw*deltaH*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365)
-        return ices,-data["shiflx"]/(60*60*24*365)
+        return Tcdw*deltaH*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365)
+        #return Tcdw*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365)
+        #return ices,-data["shiflx"]/(60*60*24*365)
     else:
-        return ices,-data["shiflx"]/(60*60*24*365),stats
-        #return Tcdw*deltaH*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365)
+        return Tcdw*deltaH*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
 
 #condstructing depth from depth differences
 def depthFromdZ(ds):
@@ -201,7 +206,6 @@ def mixedLayerQuant(ds,fname):
     tcdw = []
 
     Zfull = np.asarray(list(ds.Z))
-    froudes = []
     for t_index in tqdm(range(THETA.shape[0])):
         gprimes_t = []
         ssurf_t = []
@@ -223,17 +227,17 @@ def mixedLayerQuant(ds,fname):
                     s = scast[scast>0.1]
                     #t = tcast
                     #s = scast
-                    if np.sum(abs(t-t[0])>0.1)>0:#and np.sum(t>0.5)>0:
-                        mldi = np.where(abs(t-t[0])>0.1)[0][0]
+                    if np.sum(abs(t-t[0])>0.2)>0:#and np.sum(t>0.5)>0:
+                        mldi = np.where(abs(t-t[0])>0.2)[0][0]
                         d = dens(s,t,Z[mldi])
                         #cdwi = np.where(t>0)[0][0]
                         rho_1 = np.nanmean(d[:mldi])
-                        rho_2 = np.nanmean(d[mldi:max(mldi*2,len(d)-1)])
+                        rho_2 = np.nanmean(d[mldi:])
                         gprimes_t.append(9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2)))
                         ssurf_t.append(np.nanmean(s[:mldi]))
                         scdw_t.append(np.nanmean(s[mldi:max(mldi*2,len(s)-1)]))
                         tsurf_t.append(np.nanmean(t[:mldi]))
-                        tcdw_t.append(np.nanmean(t[mldi:max(mldi*2,len(t)-1)]))
+                        tcdw_t.append(np.nanmean(t[mldi:]))
                         velmagcdw = np.nanmean(np.sqrt(u[mldi:max(mldi*2,len(t)-1)]**2+v[mldi:max(mldi*2,len(t)-1)]**2))
                         velmagsurf = np.nanmean(np.sqrt(u[:mldi]**2+v[:mldi]**2))
                         
@@ -242,7 +246,7 @@ def mixedLayerQuant(ds,fname):
         scdw.append(np.nanmean(scdw_t))
         tsurf.append(np.nanmean(tsurf_t))
         tcdw.append(np.nanmean(tcdw_t))
-    return gprimes,ssurf,scdw,tsurf,tcdw,froudes#,froudesurf,froudecdw
+    return gprimes,ssurf,scdw,tsurf,tcdw
 
 
 def timeSeries(fname,refresh=False):
@@ -291,14 +295,18 @@ def timeSeries(fname,refresh=False):
     incavity = []
     vvel = ds.VVEL.values
     ht = vvel*(ds.THETA.values+1.8)*(ds.RHOAnoma.values+1000)
-    frontmask = ds.hFacC[:,np.nanargmin(np.abs(ds.VVEL.YG-(yice-0))),:]==0
-    sliceindex=np.nanargmin(np.abs(ds.VVEL.YG-(yice-0)))
+    print(ds.THETA)
+    #frontmask = ds.hFacC[:,np.nanargmin(np.abs(ds.VVEL.YG-(yice-10000))),:]==0
+    index = np.argmin(np.abs(ds.VVEL.YG.values-(yice-50000)))
+
+    frontmask = ds.hFacC[:,index,:]
+    sliceindex=index
     for k in range(ds.THETA.shape[0]):
         vvelcross = vvel[k,:,sliceindex,:]
         htcross = ht[k,:,sliceindex,:]*np.array(ds.drF.values)[:,None]
-        htcross[frontmask]=np.nan
-        vvelcross[frontmask]=np.nan
-        incavity.append(np.nansum(htcross[vvelcross<0]))
+        #htcross[frontmask]=np.nan
+        #vvelcross[frontmask]=np.nan
+        incavity.append(np.nansum(htcross*frontmask))
 
     mask = ~np.isnan(ds.SHIfwFlx.values)
     shflx = ds.SHIfwFlx.values
@@ -336,15 +344,15 @@ def timeSeries(fname,refresh=False):
         icesurfacesalts.append(np.nansum(SALT[k][icem])/np.sum(icem))
         meltapprox.append(np.nansum((THETA[k]*VEL[k])[icem])/np.sum(icem))
 
-    #gprimes,ssurf,scdw,tsurf,tcdw,froude = mixedLayerQuant(ds,fname)
-    gprimes,ssurf,scdw,tsurf,tcdw,froude = np.nan,np.nan,np.nan,np.nan,np.nan,np.nan
+    gprimes,ssurf,scdw,tsurf,tcdw = mixedLayerQuant(ds,fname)
+    #gprimes,ssurf,scdw,tsurf,tcdw,froude = np.nan,np.nan,np.nan,np.nan,np.nan,np.nan
     output = {"ts":np.asarray(ts)[nanmask],"theta":np.asarray(thetas)[nanmask],"salt":np.asarray(salts)[nanmask],\
         "kes":np.asarray(kes)[nanmask],"avgbts":np.asarray([]),\
         "shiflx":np.asarray(shiwflxs)[nanmask],"bottemp":np.asarray(bottomtemps)[nanmask],"icesurfacetemp":np.asarray(icesurfacetemps)[nanmask],\
         "icesurfacesalt":np.asarray(icesurfacesalts)[nanmask],\
         "icesurfacevel":np.asarray(icesurfacevels)[nanmask],"meltapprox":np.asarray(meltapprox)[nanmask],\
-        "incavity":np.asarray(incavity)[nanmask],"gprime":np.asarray(gprimes),\
-        "ssurf":np.asarray(ssurf),"scdw":np.asarray(scdw),"tsurf":np.asarray(tsurf),"tcdw":np.asarray(tcdw),"froude":np.asarray(froude)\
+        "incavity":np.asarray(incavity)[nanmask],"gprime":np.asarray(gprimes)[nanmask],\
+        "ssurf":np.asarray(ssurf)[nanmask],"scdw":np.asarray(scdw)[nanmask],"tsurf":np.asarray(tsurf)[nanmask],"tcdw":np.asarray(tcdw)[nanmask]\
     }
     with open("data/modelTimeSeries/"+slug,"wb") as f:
         pickle.dump(output,f)
