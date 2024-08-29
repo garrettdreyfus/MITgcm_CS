@@ -7,9 +7,10 @@ from datainput import *
 from xmitgcm import open_mdsdataset
 from tqdm import tqdm
 import os
+import gsw
 
 ## Get temperature at depth)
-def intTemp(depth,fname):
+def intTemp(depth,zgl,fname):
     variables = grabMatVars(fname,('tNorth','tEast','sEast','zz','pp'))
     ## forcing temperature along eastern boundary
     tEast = np.asarray(variables["tEast"])#[0]+1.8
@@ -22,13 +23,19 @@ def intTemp(depth,fname):
     Tf= (0.0901-0.0575*sEast) - (7.61*10**(-4))*pp
     print(zz[0])
     tEast = tEast-Tf
+    #tEast = tEast+1.9
     f_interp = lambda xx: np.interp(xx, zz[::-1], tEast[::-1])
     results = []
     ls = []
     ## integrate and average temperature 25 meters above hub depth
-    result = quad(f_interp,depth,min(depth+100,0), points = zz[::-1])[0]
-    result = ((result/min(100,abs(depth))))
+    result = quad(f_interp,zgl,min(zgl+100,0), points = zz[::-1])[0]
+    result = ((result/min(100,abs(zgl))))
     return result
+## Get temperature at depth)
+def fpAtGl(zgl,salt):
+    Tf= (0.0901-0.0575*salt) - (7.61*10**(-4))*abs(zgl)
+    return Tf
+
 
 ## Calculates slope of ice shelf from either the model parameters (param option) or from a point on the ice shelf
     # the ice shelf is linear so these methods are identical
@@ -102,6 +109,7 @@ def FStheory(fname,xval,include_stats=False):
     variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","Zcdw_pt_shelf","tEast","sEast","icedraft","zz","h","yy","xx"))
     icedraft = np.asarray(variables["icedraft"])
     h = np.asarray(variables["h"])
+    hShelf = float(abs(np.asarray(variables["Hshelf"])[0][0])-abs(200))
     #
     ##Temperature and salinity at the northern boundary
     tNorth = np.asarray(variables["tEast"])[-1,:]
@@ -114,7 +122,7 @@ def FStheory(fname,xval,include_stats=False):
     shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
 
     ## Grab temperature at HUB depth
-    Tcdw = intTemp(hub,fname)
+    Tcdw = intTemp(hub,zgl,fname)
     #Tcdw = (data["tcdw"]+2)
 
     ## ice shelf slope
@@ -128,6 +136,19 @@ def FStheory(fname,xval,include_stats=False):
     tcline_height=np.mean(zz[:-1][gradd>np.quantile(gradd,0.85)])#+75
     zpyci = np.argmin(np.abs(np.abs(zz)-abs(tcline_height)))
     localdens = dens(sNorth,tNorth,abs(zz[zpyci]))
+
+    ds = open_mdsdataset(fname,prefix=["SHIfwFlx"])
+
+    dx = np.gradient(ds.XG)[0]
+    dy = np.gradient(ds.YG)[0] 
+
+    variables = grabMatVars(fname,("saltfluxvals"))
+    saltfluxvals = np.asarray(variables["saltfluxvals"])
+
+    meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+    polynaflux = np.sum(saltfluxvals*dx*dy)
+
+
 
     ## calculation of gprime
     rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
@@ -149,11 +170,31 @@ def FStheory(fname,xval,include_stats=False):
     stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
     print(stats)
     if not include_stats:
-        return Tcdw*deltaH*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365)
-        #return Tcdw*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365)
+        #return Tcdw*deltaH*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365)
+        return Tcdw*deltaH*gprime_ext/(f)*ices,-data["shiflx"]/(60*60*24*365)
         #return ices,-data["shiflx"]/(60*60*24*365)
     else:
-        return Tcdw*deltaH*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+        #return Tcdw*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+        #return np.nanmean(data["ts"])*hShelf*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+        #return 0,-data["shiflx"]/(60*60*24*365),stats 
+        if np.mean(meltsaltflux)/np.mean(polynaflux) > 1 and True:
+                print(fname)
+                print(Tcdw*deltaH*data["gprime"]/(f)*ices,-data["shiflx"]/(60*60*24*365))
+                #return np.nan*Tcdw*ices*gprime_ext*deltaH,-data["shiflx"]/(60*60*24*365),stats
+                Tf = fpAtGl(zgl,np.nanmean(data["salt"]))
+                return (np.nanmean(data["ts"])-Tf)*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+        else:
+                #return Tcdw*(data["gprime"])*deltaH/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+                #return np.nanmean(data["ts"])*-hShelf[0][0]*data["gprime"]/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+                #return (np.nanmen(data["ts"]+2))*data["gprime"]*hShelf/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+                #return ices,-data["shiflx"]/(60*60*24*365),stats
+                Tf = fpAtGl(zgl,np.nanmean(data["salt"]))
+
+                #return (np.nanmean(data["ts"])-Tf)*ices*data["gprime"]*(abs(hub)-abs(zgl)),-data["shiflx"]/(60*60*24*365),stats
+                #return (np.nanmean(data["ts"])-Tf)**2*ices,-data["shiflx"]/(60*60*24*365),stats
+                return (np.nanmean(data["ts"])-Tf)*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+
+        #return ices,-data["shiflx"]/(60*60*24*365),stats
 
 #condstructing depth from depth differences
 def depthFromdZ(ds):
@@ -233,6 +274,7 @@ def mixedLayerQuant(ds,fname):
                         #cdwi = np.where(t>0)[0][0]
                         rho_1 = np.nanmean(d[:mldi])
                         rho_2 = np.nanmean(d[mldi:])
+                        #gprimes_t.append(np.nanmax(np.abs(np.diff(d)/Z[mldi])))
                         gprimes_t.append(9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2)))
                         ssurf_t.append(np.nanmean(s[:mldi]))
                         scdw_t.append(np.nanmean(s[mldi:max(mldi*2,len(s)-1)]))
@@ -250,6 +292,7 @@ def mixedLayerQuant(ds,fname):
 
 
 def timeSeries(fname,refresh=False):
+    print(fname)
     fnameparts = fname.split("/")
     slug = fnameparts[-3]+"-"+fnameparts[-2]+".pickle"
 
@@ -262,6 +305,8 @@ def timeSeries(fname,refresh=False):
     times=getIterNums(fname)
     ds = open_mdsdataset(fname,prefix=["THETA","SALT","momKE","SHIfwFlx","VVEL","UVEL","WVEL","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
     ## theta plot
+    print(ds)
+    print(fname)
     ts = ds.time.values*grabDeltaT(fname)/60.0/60.0/24.0/365.0
     tsnew = np.full_like(ts,0,dtype=float)
     tsnew[:] = ts
@@ -281,6 +326,7 @@ def timeSeries(fname,refresh=False):
     THETA = cavity.THETA.values
     for k in range(cavity.THETA.shape[0]):
         thetas.append((np.sum(THETA[k]*cavvolume))/cavvolumesum)
+        #thetas.append(np.mean(THETA[k][THETA[k]!=0]))
 
     salts = []
     SALT = cavity.SALT.values
@@ -292,12 +338,21 @@ def timeSeries(fname,refresh=False):
     for k in range(cavity.THETA.shape[0]):
         kes.append((np.sum(momKE[k]*cavvolume))/cavvolumesum)
 
+
+    cavity = ds.where(ds.YC<yice,drop=True)
+
     incavity = []
     vvel = ds.VVEL.values
     ht = vvel*(ds.THETA.values+1.8)*(ds.RHOAnoma.values+1000)
     print(ds.THETA)
     #frontmask = ds.hFacC[:,np.nanargmin(np.abs(ds.VVEL.YG-(yice-10000))),:]==0
     index = np.argmin(np.abs(ds.VVEL.YG.values-(yice-50000)))
+
+    polyna = ds.where(ds.YC>=yice,drop=True)
+    polyna = polyna.where(polyna.YC<=yice+10000,drop=True)
+    polyna = polyna.where(polyna.hFacC!=0)
+    polynadensdiff = polyna.where(polyna.Z>-300,drop=True).mean(dim=["Z","XC","YC"]) - polyna.where(polyna.Z<-300,drop=True).mean(dim=["Z","XC","YC"])
+    polynadensdiff = polynadensdiff.SALT.values
 
     frontmask = ds.hFacC[:,index,:]
     sliceindex=index
@@ -352,10 +407,10 @@ def timeSeries(fname,refresh=False):
         "icesurfacesalt":np.asarray(icesurfacesalts)[nanmask],\
         "icesurfacevel":np.asarray(icesurfacevels)[nanmask],"meltapprox":np.asarray(meltapprox)[nanmask],\
         "incavity":np.asarray(incavity)[nanmask],"gprime":np.asarray(gprimes)[nanmask],\
-        "ssurf":np.asarray(ssurf)[nanmask],"scdw":np.asarray(scdw)[nanmask],"tsurf":np.asarray(tsurf)[nanmask],"tcdw":np.asarray(tcdw)[nanmask]\
+        "ssurf":np.asarray(ssurf)[nanmask],"scdw":np.asarray(scdw)[nanmask],"tsurf":np.asarray(tsurf)[nanmask],"tcdw":np.asarray(tcdw)[nanmask],\
+        "polynadensdiff":np.asarray(polynadensdiff)[nanmask]\
     }
     with open("data/modelTimeSeries/"+slug,"wb") as f:
         pickle.dump(output,f)
     return output
-
 
