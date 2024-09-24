@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import xarray as xr
 import gsw
@@ -14,6 +16,7 @@ from matplotlib.animation import FFMpegFileWriter
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from astropy.convolution import convolve, Box2DKernel
 from tqdm import tqdm
+from scipy.stats import pearsonr
 import cmocean
 import os
 
@@ -379,21 +382,15 @@ def saltBudget(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     return gprime_ext
 
 def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o"):
-    data = timeSeries(fname)
-    for k in data.keys():
-        if k != "ts":
-            try:
-                data[k] = np.nanmean(data[k][data["ts"]>5])
-            except:
-                data[k]=np.nan
-    if "gprime" not in data.keys():
-        data["gprime"] = np.nan
-
-    glib = GLIBfromFile(matVarsFile(fname))
-    shiflx = -data["shiflx"]
     shortname,_ = outPath(fname)
     if xval == None:
-        xval,shiflx = FStheory(fname,xval)
+        xval,shiflx,stats = FStheory(fname,xval)
+        if ~np.isnan(xval):
+                ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname)
+        return xval
+
+    data = timeSeries(fname)
+    shiflx = -np.nanmean(data["shiflx"])
     ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname)
     return xval
 
@@ -475,7 +472,7 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
     #ax6.plot(data["ts"][data["ts"]>starttime],data["incavity"][data["ts"]>starttime],c=color)
     print(polynaflux)
     print(fname)
-    ax6.plot(data["ts"][data["ts"]>starttime],meltsaltflux[1:]/polynaflux,c=color)
+    ax6.plot(data["ts"][data["ts"]>starttime],meltsaltflux[1:][data["ts"]>starttime]/polynaflux,c=color)
     #ax6.plot(data["ts"][data["ts"]>starttime],polynaflux[data["ts"]>starttime],c=color)
     ax6.set_xlabel("Time")
     ax6.set_ylabel("Meltflux/polynaflux")
@@ -488,13 +485,35 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
     bottomtemps = []
     surfacetemps = []
  
-def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=None,show=True,savepath=False):
+def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=None,show=True,savepath=False,fixcb=True):
     if not ax1:
         fig,ax1 = plt.subplots(figsize=(10,8))
     extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
     times=getIterNums(fname)
-    if quant!="DENS":
-        ds = open_mdsdataset(fname,prefix=["THETA","SALT","WVEL","VVEL"],ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
+    if quant=="UVEL":
+        ds = open_mdsdataset(fname,prefix=["UVEL"],ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
+        ds = ds.mean(dim="time")
+        if dim == "meridional":
+            ind = np.argmin(np.abs(ds.XC.values-selval))
+            zonal_average = ds.isel(XG=ind,drop=True)
+            zonal_average = zonal_average.isel(XC=ind,drop=True)
+            ys = zonal_average.YC.values
+        if dim == "zonal":
+            ind = np.argmin(np.abs(ds.YC.values-selval))
+            zonal_average = ds.isel(YG=ind,drop=True)
+            zonal_average = zonal_average.isel(YC=ind,drop=True)
+            ys = zonal_average.XC.values
+        zvals = zonal_average[quant].values
+        zvals[zonal_average.hFacC.values==0] = np.nan
+        m = np.nanmedian(zvals)
+        s = np.nanstd(zvals)
+        tmin, tmax = m-2*s,m+s*2
+        zs = zonal_average.Z.values
+        length = zvals.shape[0]
+        shortname, fpath = outPath(fname) 
+        fig.suptitle(description)
+    elif quant!="DENS":
+        ds = open_mdsdataset(fname,prefix=["THETA","SALT","WVEL","VVEL","UVEL"],ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
         ds = ds.mean(dim="time")
         if dim == "meridional":
             ind = np.argmin(np.abs(ds.XC.values-selval))
@@ -505,16 +524,10 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
             zonal_average = ds.isel(YC=ind,drop=True)
             ys = zonal_average.XC.values
         zvals = zonal_average[quant].values
-        print(zonal_average)
         zvals[zonal_average.hFacC.values==0] = np.nan
-        #zvals[:,zonal_average.hFacC.values!=1]=np.nan
-        #zvals[zvals==0]=np.nan
         m = np.nanmedian(zvals)
         s = np.nanstd(zvals)
         tmin, tmax = m-2*s,m+s*2
-        shortname, fpath = outPath(fname) 
-        #plt.hist(zvals[:,:,:].flatten())
-        #plt.show()
         zs = zonal_average.Z.values
         length = zvals.shape[0]
         shortname, fpath = outPath(fname) 
@@ -524,10 +537,13 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
         ds = ds.mean(dim="time")
         #zonal_average = ds.where(ds.hFacC==1).isel(XC=100)
         if dim == "meridional":
-            zonal_average = ds.where(ds.hFacC==1).mean(dim="XC",skipna=True)
+            ind = np.argmin(np.abs(ds.XC.values-selval))
+            #zonal_average = ds.where(ds.hFacC==1).mean(dim="XC",skipna=True)
+            zonal_average = ds.isel(XC=ind)
             ys = zonal_average.YC.values
         if dim == "zonal":
-            zonal_average = ds.isel(YC=76)
+            ind = np.argmin(np.abs(ds.YC.values-selval))
+            zonal_average = ds.isel(YC=ind)
             ys = zonal_average.XC.values
         shortname, fpath = outPath(fname) 
         fig.suptitle(description)
@@ -535,15 +551,33 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
         #tmin, tmax = np.nanmin(zonal_average[quant]), np.nanmax(zonal_average[quant])
         zvals = (zonal_average["SALT"].values,zonal_average["THETA"].values)
         length = zvals[0].shape[0]
+        zvals = gsw.sigma0(zvals[0],zvals[1])
+        zvals[zonal_average.hFacC.values==0] = np.nan
 
-    if quant=="THETA":
-    	c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap=cmocean.cm.thermal,zorder=5,vmin=-2,vmax=-1.8)
-    if quant=="SALT":
-    	c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap=cmocean.cm.thermal,zorder=5,vmin=34.1,vmax=34.4)
-    if quant=="WVEL" or quant == "VVEL":
-    	c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap="seismic",zorder=5,vmin=-0.0005,vmax=0.0005)
-    if quant=="DENS":
-        c = ax1.pcolormesh(ys,zs,gsw.sigma0(zvals[0],zvals[1]),cmap="jet",vmin=27.4,vmax=27.7)
+    if fixcb:
+        if quant=="THETA":
+            c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap=cmocean.cm.thermal,zorder=5,vmin=-2,vmax=-1.8)
+        if quant=="SALT":
+            c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap=cmocean.cm.thermal,zorder=5,vmin=34.1,vmax=34.4)
+        if "VEL" in quant:
+            c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap="seismic",zorder=5,vmin=-0.075,vmax=0.075)
+        if quant=="DENS":
+            c = ax1.pcolormesh(ys,zs,zvals,cmap="jet",vmin=27.4,vmax=27.7)
+    else:
+        variables = grabMatVars(fname,("Yicefront"))
+        yice = float(variables["Yicefront"])
+        cavmin = np.nanmin(zvals[:,ys<yice])
+        cavmax = np.nanmax(zvals[:,ys<yice])
+        if quant=="THETA":
+            c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap=cmocean.cm.thermal,zorder=5,vmin=cavmin,vmax=cavmax)
+        if quant=="SALT":
+            c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap=cmocean.cm.thermal,zorder=5,vmin=cavmin,vmax=cavmax)
+        if "VEL" in quant:
+            c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap="seismic",zorder=5,vmin=cavmin,vmax=cavmax)
+        if quant=="DENS":
+            c = ax1.pcolormesh(ys,zs,zvals,cmap="jet",vmin=cavmin,vmax=cavmax)
+ 
+        
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
 
@@ -572,6 +606,7 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
         plt.show()
     if savepath:
         plt.savefig(savepath)
+    plt.close()
 
 
 def simpleSurfaceAverage(fname,description,quant="THETA",res=1,dim="zonal",ax1=None,show=True):
@@ -798,7 +833,7 @@ def mixmap(fname,description,times=np.array([])):
             frame.remove()
 
 
-def topMap(fname,description,quant="THETA",times=np.array([]),show=False,savepath=False):
+def topMap(fname,description,quant="THETA",times=np.array([]),show=False,savepath=False,fixcb=True):
     extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
 
     times=getIterNums(fname)
@@ -873,14 +908,39 @@ def topMap(fname,description,quant="THETA",times=np.array([]),show=False,savepat
             vtop +=  np.nanmean(vvel[k] * icem,axis=0)
     thetabot = thetabot/count
     thetatop = thetatop/count
-    if quant=="THETA":
-        ax1.pcolormesh(X,Y,thetabot,vmin=-2.2,vmax=-1.8,cmap=cmocean.cm.thermal)
-        frame = ax2.pcolormesh(X,Y,thetatop,vmin=-2.2,vmax=-1.8,cmap=cmocean.cm.thermal)
-    if quant=="SALT":
-        ax1.pcolormesh(X,Y,thetabot,vmin=34.15,vmax=34.5,cmap=cmocean.cm.haline)
-        frame = ax2.pcolormesh(X,Y,thetatop,vmin=34.15,vmax=34.4,cmap=cmocean.cm.haline)
 
-    cb = plt.colorbar(frame,ax=ax2,pad=0.05)
+    variables = grabMatVars(fname[:-1],("Yicefront"))
+    yice = float(variables["Yicefront"])
+    if quant=="THETA":
+        if fixcb:
+
+                ax1.pcolormesh(X,Y,thetabot,vmin=-2.2,vmax=-1.8,cmap=cmocean.cm.thermal)
+                frame = ax2.pcolormesh(X,Y,thetatop,vmin=-2.2,vmax=-1.8,cmap=cmocean.cm.thermal)
+                cb = plt.colorbar(frame,ax=ax2,pad=0.05)
+        else:
+                cavmin = np.nanmin(thetabot[Y<yice])
+                cavmax = np.nanmax(thetabot[Y<yice])
+                frame = ax1.pcolormesh(X,Y,thetabot,cmap=cmocean.cm.thermal,vmin=cavmin,vmax=cavmax)
+                cb = plt.colorbar(frame,ax=ax1,pad=0.05)
+                cavmin = np.nanmin(thetatop[Y<yice])
+                cavmax = np.nanmax(thetatop[Y<yice])
+                frame = ax2.pcolormesh(X,Y,thetatop,cmap=cmocean.cm.thermal,vmin=cavmin,vmax=cavmax)
+                cb = plt.colorbar(frame,ax=ax2,pad=0.05)
+    if quant=="SALT":
+        if fixcb:
+                ax1.pcolormesh(X,Y,thetabot,vmin=34.15,vmax=34.5,cmap=cmocean.cm.haline)
+                frame = ax2.pcolormesh(X,Y,thetatop,vmin=34.15,vmax=34.4,cmap=cmocean.cm.haline)
+                cb = plt.colorbar(frame,ax=ax2,pad=0.05)
+        else:
+                cavmin = np.nanmin(thetabot[Y<yice])
+                cavmax = np.nanmax(thetabot[Y<yice])
+                frame = ax1.pcolormesh(X,Y,thetabot,cmap=cmocean.cm.haline,vmin=cavmin,vmax=cavmax)
+                cb = plt.colorbar(frame,ax=ax1,pad=0.05)
+                cavmin = np.nanmin(thetatop[Y<yice])
+                cavmax = np.nanmax(thetatop[Y<yice])
+                frame = ax2.pcolormesh(X,Y,thetatop,cmap=cmocean.cm.haline,vmin=cavmin,vmax=cavmax)
+                cb = plt.colorbar(frame,ax=ax2,pad=0.05)
+
     
     ax1.quiver(X[::2,::2],Y[::2,::2],ubot[::2,::2],vbot[::2,::2],scale=0.75)
     ax2.quiver(X[::2,::2],Y[::2,::2],utop[::2,::2],vtop[::2,::2],scale=0.75)
@@ -1109,7 +1169,7 @@ def folderMap(runsdict,save=False):
         print(k,np.nanmean(stats[k]),np.nanstd(stats[k]))
     print(xs,ys)
     xs = np.asarray(([xs])).reshape((-1, 1))
-    model = LinearRegression().fit(xs, ys)
+    model = LinearRegression(fit_intercept=True).fit(xs, ys)
     rho0 = 1025
     rhoi = 910
     Cp = 4186
@@ -1122,7 +1182,7 @@ def folderMap(runsdict,save=False):
     oldxs=xs
     #xs= xs*(rho0*Cp)/(rhoi*If*325000)
     xs=model.predict(xs)
-    plt.text(.05, .95, '$r^2=$'+str(round(model.score(oldxs,ys),2)), ha='left', va='top', transform=plt.gca().transAxes,fontsize=18)
+    plt.text(.05, .95, '$r^2=$'+str(round(float(pearsonr(oldxs.flatten(),ys)[0])**2,2)), ha='left', va='top', transform=plt.gca().transAxes,fontsize=18)
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
 
@@ -1130,9 +1190,9 @@ def folderMap(runsdict,save=False):
     plt.gca().set_ylabel(r'$\dot{m}_{\mathrm{obs}} (m/yr)$',fontsize=24)
 
 
-    #plt.plot(range(0,25),range(0,25),linestyle="dashed")
-    plt.xlim(0,10)
-    plt.ylim(0,10)
+    #plt.plot(range(0,5),range(0,5),linestyle="dashed")
+    #plt.xlim(0,3)
+    #plt.ylim(0,3)
     for k in runsdict.keys():
         for f in glob.glob(str("../experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
@@ -1150,25 +1210,27 @@ def folderMap(runsdict,save=False):
                 plt.savefig("/home/garrett/Projects/HUB/paperfigures/"+k+".png")
     plt.legend()
 
-def folderMapGeneric(func,runsdict,save=True):
+def folderMapGeneric(func,runsdict,save=False):
     fig,axises = plt.subplots(1,1,figsize=(8,7))
     for k in runsdict.keys():
-        for f in glob.glob(str("/home/garrett/Projects/MITgcm_ISC/experiments/"+k+"/*"), recursive = True):
+        for f in glob.glob(str("/jbod/gdf/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
-                if key and key in f:
+                if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
                     try:
                         func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
                     except:
                         print("yeesh")
-                elif not key:
+                elif not key and False:
                     #try:
                     func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
                     #except:
                         #print("yeesh")
 
             if save:
-                plt.savefig("/home/garrett/Projects/HUB/paperfigures/"+k+".png")
+                plt.savefig("/home/garrett/Projects/HUB/paperfigures/"+k+".png")        
+
+    plt.legend()
 
 def folderMapMoreGeneric(func,runsdict):
     for k in runsdict.keys():
@@ -1369,27 +1431,58 @@ def buildPortfolio(fname,name):
     volumetricTS(fname,shortname,show=False,savepath=foliopath+"/volumetricTS.png")
     meltMapAverage(fname[:-1],shortname,show=False,savepath=foliopath+"/meltmap.png")
     crossSectionAverage(fname[:-1],shortname,150*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/150meridionalT.png")
+    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/150meridionalT-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,200*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/200meridionalT.png")
+    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/200meridionalT-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,250*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/250meridionalT.png")
-
+    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/250meridionalT-nf.png",fixcb=False)
+###
     crossSectionAverage(fname[:-1],shortname,150*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/150meridionalS.png")
+    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/150meridionalS-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,200*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/200meridionalS.png")
+    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/200meridionalS-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,250*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/250meridionalS.png")
+    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/250meridionalS-nf.png",fixcb=False)
+#
+
+    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/150meridionalU.png")
+    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/150meridionalU-nf.png",fixcb=False)
+    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/200meridionalU.png")
+    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/200meridionalU-nf.png",fixcb=False)
+    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/250meridionalU.png")
+    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/250meridionalU-nf.png",fixcb=False)
+
 
     crossSectionAverage(fname[:-1],shortname,150*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/150meridionalD.png")
+    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/150meridionalD-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,200*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/200meridionalD.png")
+    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/200meridionalD-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,250*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/250meridionalD.png")
-
+    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/250meridionalD-nf.png",fixcb=False)
+##
     crossSectionAverage(fname[:-1],shortname,80*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/80zonalT.png")
+    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/80zonalT-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,140*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/140zonalT.png")
+    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/140zonalT-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,175*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/175zonalT.png")
-
+    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/175zonalT-nf.png",fixcb=False)
+##
     crossSectionAverage(fname[:-1],shortname,80*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/80zonalS.png")
+    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/80zonalS-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,140*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/140zonalS.png")
+    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/140zonalS-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,175*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/175zonalS.png")
-
+    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/175zonalS-nf.png",fixcb=False)
+##
     crossSectionAverage(fname[:-1],shortname,80*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/80zonalD.png")
+    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/80zonalD-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,140*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/140zonalD.png")
+    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/140zonalD-nf.png",fixcb=False)
     crossSectionAverage(fname[:-1],shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD.png")
+    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD-nf.png",fixcb=False)
+
     topMap(fname,shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT.png")
+    topMap(fname,shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT-nf.png",fixcb=False)
     topMap(fname,shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS.png")
+    topMap(fname,shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS-nf.png",fixcb=False)
+
