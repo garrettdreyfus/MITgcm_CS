@@ -1,5 +1,6 @@
 from graph import folderMap, folderMapRefresh, timeSeriesDashboard, folderMapTimeSeries
 import graph
+import analysis
 import matplotlib.pyplot as plt
 
 
@@ -59,13 +60,15 @@ runsdict = {\
 #graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf100/results/","sf100")
 #folderMap(runsdict)
 #plt.show()
+analysis.saltBoxes("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/results")
 #folderMapTimeSeries(runsdict,"")
-graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
-plt.show()
+#graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
+#plt.show()
 #plt.show()
 #plt.show()
 #
-#graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf100/results","reference",200*10**3,quant="SALT",dim="meridional",show=True)
+#graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/results","reference",200*10**3,quant="RHOAnoma",dim="meridional",show=True,fixcb=False)
+#plt.show()
 #graph.crossSectionAnim("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf50/results/","Reference",quant="THETA",dim="meridional")
 #graph.crossSectionAnim("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results/","Reference",quant="DENS",dim="meridional")
 #graph.crossSectionAnim("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf5/results/","Reference",quant="SALT",dim="meridional")

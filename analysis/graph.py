@@ -6,6 +6,7 @@ import xarray as xr
 import gsw
 import glob
 from sklearn.linear_model import LinearRegression
+from jmd95 import dens
 from analysis import FStheory,slope,timeSeries, bottomMask, icemask, depthFromdZ 
 from datainput import  matVarsFile, getIterNums, grabDeltaT, outPath, grabMatVars
 from xmitgcm import open_mdsdataset
@@ -437,6 +438,23 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
     meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
     polynaflux = np.sum(saltfluxvals*dx*dy)
 
+    variables = grabMatVars(fname,("tEast",'sEast','zz'))
+    tNorth = np.asarray(variables["tEast"])[-1,:]
+    sNorth = np.asarray(variables["sEast"])[-1,:]
+    localdens = dens(sNorth,tNorth,abs(200))
+    zz = np.asarray(variables["zz"])[0]
+    d = localdens
+    Zfull = np.asarray(list(ds.Z))
+    gradd = np.abs(np.diff(localdens)/np.diff(zz))
+    #average depth of all above 80th percentile
+    tcline_height=np.mean(zz[:-1][gradd>np.quantile(gradd,0.85)])#+75
+    zpyci = np.argmin(np.abs(np.abs(zz)-abs(tcline_height)))
+    localdens = dens(sNorth,tNorth,abs(zz[zpyci]))
+
+    ## calculation of gprime
+    rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
+    rho_2i = np.logical_and(zz<zz[zpyci]+50,zz>zz[zpyci])
+    gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
 
 
     if len(data["ts"])==0:
@@ -458,14 +476,14 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
     kes = []
     ax3.scatter(np.mean(meltsaltflux[1:]/polynaflux),np.mean(data["gprime"][data["ts"]>starttime][5:]),label=label,c=color)
     ax3.set_xlabel("avg Meltflux/polynaflux")
-    ax3.set_ylabel("polynasaltdiff")
+    ax3.set_ylabel("gprime")
 
     ax4.plot(data["ts"][data["ts"]>starttime],data["shiflx"][data["ts"]>starttime],c=color)
 
     ax4.set_xlabel("Time")
     ax4.set_ylabel("Melt Rate m/yr")
 
-    ax5.plot(data["ts"][data["ts"]>starttime],data["gprime"][data["ts"]>starttime],c=color)
+    ax5.plot(data["ts"][data["ts"]>starttime],data["polynasaltdiff"][data["ts"]>starttime],c=color)
     ax5.set_xlabel("Time")
     ax5.set_ylabel("gprime")
 
@@ -513,7 +531,7 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
         shortname, fpath = outPath(fname) 
         fig.suptitle(description)
     elif quant!="DENS":
-        ds = open_mdsdataset(fname,prefix=["THETA","SALT","WVEL","VVEL","UVEL"],ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
+        ds = open_mdsdataset(fname,prefix=["THETA","SALT","WVEL","VVEL","UVEL","RHOAnoma"],ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
         ds = ds.mean(dim="time")
         if dim == "meridional":
             ind = np.argmin(np.abs(ds.XC.values-selval))
@@ -575,6 +593,8 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
         if "VEL" in quant:
             c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap="seismic",zorder=5,vmin=cavmin,vmax=cavmax)
         if quant=="DENS":
+            c = ax1.pcolormesh(ys,zs,zvals,cmap="jet",vmin=cavmin,vmax=cavmax)
+        else:
             c = ax1.pcolormesh(ys,zs,zvals,cmap="jet",vmin=cavmin,vmax=cavmax)
  
         
