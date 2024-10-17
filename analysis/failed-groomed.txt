@@ -1,6 +1,0 @@
-shelfdepth-16/at0d600/results 0.999999619
-widthexp-GLIB-explore-32/at0w250/results 6.0
-icefront-64/at125y100/results EMPTY
-icefront-64/at0y100/results EMPTY
-slope-22/s150at125/results 6.666664954
-slope-22/s300at-300/results 7.916666666

@@ -517,12 +517,12 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
       pt_mid = -1.8;
       pt_bot = -1.8;
   end
+
   Zsml = -50;
   % above -600
   % at -1000
   % at -1500
   
-  %Zcdw_pt_shelf = HUB+experiment_parameters.tcline_atshelf_depth; %%% CDW depth over the shelf
   Zcdw_pt_shelf = HUB+experiment_parameters.tcline_atshelf_depth; %%% CDW depth over the shelf
 
   Zcdw_pt_South = Zcdw_pt_shelf + experiment_parameters.tcline_deltaz; %%% CDW depth at the southern boundary
