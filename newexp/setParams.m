@@ -134,7 +134,7 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
   %%% Package options
   useSEAICE = false;
   useSHELFICE = true;     
-  useLAYERS = false;      
+  useLAYERS = true;      
   useEXF = false;  
   useRBCS = experiment_parameters.rbcs_temp;  
   
@@ -305,7 +305,6 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
   dz = interp1(nn_c,dz_c,nn,'pchip');
 
   zz = -cumsum((dz+[0 dz(1:end-1)])/2);
-  display(zz(end))
   if (length(zz) ~= Nr)
     error('Vertical grid size does not match vertical array dimension!');
   end
@@ -505,12 +504,18 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
       s_surf = 34.15;
       pt_surf = -1.8;
   else 
-      s_bot = 34.8;
-      pt_bot = -1.5;
-      s_mid = 34.5;
-      pt_mid = -1.5;
       s_surf = 34.2;
-      pt_surf = -1.5;
+      s_mid = 34.5;
+      s_bot = 34.8;
+
+      if isfield(experiment_parameters,'saltbump')
+           s_mid = s_mid + experiment_parameters.saltbump;
+           s_bot = s_bot + experiment_parameters.saltbump; 
+      end
+
+      pt_surf = -1.8;
+      pt_mid = -1.8;
+      pt_bot = -1.8;
   end
   Zsml = -50;
   % above -600
@@ -524,9 +529,6 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
 
   lat_Zcdw_pt = [0 Yshelfbreak Ydeep Ly];
   Zcdw_pt_2 = [Zcdw_pt_shelf Zcdw_pt_shelf Zcdw_pt_South Zcdw_pt_South]; %%% Piecewise function
-  lat_Zcdw_pt
-  Zcdw_pt_2
-  yy
 
   Zcdw_pt = interp1(lat_Zcdw_pt,Zcdw_pt_2,yy,'PCHIP'); 
   Zcdw_s = Zcdw_pt - 100; %%% Th
@@ -674,7 +676,6 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
   for k=1:Nr-1
     N2_north(k) = -(g/rhoConst)*(densmdjwf(sNorth(k),tNorth(k),pp_mid_north(k)) - densmdjwf(sNorth(k+1),tNorth(k+1),pp_mid_north(k))) / (zz(k)-zz(k+1));
   end      
-  disp(N2_north);
   
   %%% Calculate internal wave speed and first Rossby radius of deformation
   dzData = zz(1:end-1)-zz(2:end);
@@ -796,15 +797,15 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
 
 
     for k=1:1:Nr
-	hydroTh(:,:,k) = squeeze(hydroTh(:,:,k))*tNorth(k);
-	hydroSa(:,:,k) = squeeze(hydroSa(:,:,k))*sNorth(k);
+        hydroTh(:,:,k) = squeeze(hydroTh(:,:,k))*tNorth(k);
+        hydroSa(:,:,k) = squeeze(hydroSa(:,:,k))*sNorth(k);
     end
   if (isfield(experiment_parameters,'initial_state') && experiment_parameters.initial_state == "cold")
       for ix=1:Nx
           for iy=1:Ny
                   if yy(iy) < Yicefront
-                          hydroTh(ix,iy,:) = tNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(pt_surf-tNorth);
-                          hydroSa(ix,iy,:) = sNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(s_surf-sNorth);
+                          hydroTh(ix,iy,:) = tNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(-1.8-tNorth);
+                          hydroSa(ix,iy,:) = sNorth+min(abs(yy(iy)-Yicefront)/75000,1)*(34.7-sNorth);
                   end
           end
       end
@@ -829,7 +830,7 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
     saltfluxvals = zeros(Nx,Ny);
     saltfluxvals(~iceidx) = 0;
     saltfluxfile = 'saltflux.bin';
-    saltfluxvals(iceidx) = -2.5*10^(-1);
+    saltfluxvals(iceidx) = -2.5*10^(-1) * experiment_parameters.saltflux_factor;
     if(showplots)
       pcolor(X,Y,saltfluxvals);
       shading interp;
@@ -1309,7 +1310,7 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
          36.7 36.73 36.76 36.8:0.1:37.1 ...
          37.13:0.02:37.17 37.18:0.004:37.206 ...
          37.21:0.003:37.3 37.5 40]; 
-     layers_bounds(:,2) = [-10 -1.88:0.01:-1.78 -1.76:0.05:-1.2 -1.18:0.02:-1.16 -1.144:0.002:-1.18 -1.15:0.05:1 10];
+     layers_bounds(:,2) = [-10 -2.28:0.05:-1.78 -1.76:0.05:-1.2 -1.18:0.02:-1.16 -1.144:0.002:-1.18 -1.15:0.05:1 10];
 
   %%% Reference level for calculation of potential density
   refDepth = 2*m1km;
@@ -1365,12 +1366,12 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
     relaxmaskFile = 'relaxmask.bin';
     %%%%% TEMPERATURE SETTINGS %%%%%%%%%%%%%5
     useRBCtemp = experiment_parameters.rbcs_temp;
-    tauRelaxT = 6*t1hour;
+    tauRelaxT = 1*t1hour;
     %%% For initial conditions
     trelaxvalsFile = 'trelaxvals.bin';
     %%% Align initial temp with background
     trelaxvals = zeros(Nx,Ny,Nr);
-    trelaxvals(relaxmask==1) = -1.86;
+    trelaxvals(relaxmask==1) = -1.9;
 
     writeDataset(trelaxvals,fullfile(inputpath,trelaxvalsFile),ieee,prec); 
 
@@ -1463,7 +1464,8 @@ function nTimeSteps = setParams (exp_name,inputpath,codepath,listterm,Nx,Ny,Nr,e
                      %'KPPnuddt','KPPnudds','KPPRi','KPPdbloc','KPPshsq','KPPg_TH','KPPg_SLT'};%%% Basic state 
 
   diag_fields_avg = {'SHIfwFlx','SHIhtFlx','SHIForcT','SHIForcS','SALT','THETA','momKE','RHOAnoma',...
-		     'UVEL','VVEL','WVEL','PHIHYD','ETAN','MXLDEPTH'};%%% Basic state 
+		     'UVEL','VVEL','WVEL','PHIHYD','ETAN','MXLDEPTH',...
+                     'ADVx_SLT','ADVy_SLT','ADVr_SLT','ADVx_TH','ADVy_TH','ADVr_TH',   };%%% Basic state 
   % % %      'TOTTTEND','TFLUX','ADVy_TH','VVELTH','oceQnet',...%%% Heat budget
   % % %      'UVELSQ','VVELSQ','WVELSQ','UV_VEL_Z','WU_VEL','WV_VEL',...%%% Energy budget
   % % %      'LaVH1RHO','LaHs1RHO',...%%% Overturning circ

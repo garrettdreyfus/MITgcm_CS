@@ -67,10 +67,10 @@ function plot_model(expdir,expname,outputname,boundary)
 
     if isotherm &&  boundary
         idx_1 = 1;
-        BC_u = squeeze(uu(idx_1,:,:));
-        BC_u(BC_u==0) = NaN;
-        BC_t = squeeze(tt(end,:,:));
-        BC_s = squeeze(ss(idx_1,:,:));
+        %BC_u = squeeze(uu(idx_1,:,:));
+        %BC_u(BC_u==0) = NaN;
+        %BC_t = squeeze(tt(end,:,:));
+        BC_s = sEast;
     end
 
     %%% Extract zonal boundary values
@@ -166,7 +166,8 @@ function plot_model(expdir,expname,outputname,boundary)
     box on;
     grid off;
 
-     figdir = '/home/garrett/Projects/HUB/paperfigures/';
+    % figdir = '/home/garrett/Projects/HUB/paperfigures/';
+    figdir = './';
     [figdir outputname]
      print('-dpng','-r200',[figdir outputname]);
     
