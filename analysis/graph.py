@@ -474,9 +474,11 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
 
     ## kinetic energy plot
     kes = []
-    ax3.scatter(np.mean(meltsaltflux[1:]/polynaflux),np.mean(data["gprime"][data["ts"]>starttime][5:]),label=label,c=color)
-    ax3.set_xlabel("avg Meltflux/polynaflux")
-    ax3.set_ylabel("gprime")
+    #ax3.scatter(gprime_ext*np.mean(meltsaltflux[1:]/polynaflux),np.mean(data["offshorefraction"][data["ts"]>starttime][6:]),label=label,c=color)
+    #ax3.scatter(np.mean(meltsaltflux[1:]/polynaflux),np.mean(data["offshorefraction"][data["ts"]>starttime][6:]),label=label,c=color)
+    ax3.scatter(np.mean(data["gprime"][data["ts"]>starttime][10:]),np.mean(data["offshorefraction"][data["ts"]>starttime][10:]),label=label,c=color)
+    ax3.set_xlabel("Exterior Stratification * (Melt salt flux - polyna salt flux)")
+    ax3.set_ylabel("Cavity Stratification (m/s^2)")
 
     ax4.plot(data["ts"][data["ts"]>starttime],data["shiflx"][data["ts"]>starttime],c=color)
 
@@ -490,8 +492,8 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
     #ax6.plot(data["ts"][data["ts"]>starttime],data["incavity"][data["ts"]>starttime],c=color)
     print(polynaflux)
     print(fname)
-    ax6.plot(data["ts"][data["ts"]>starttime],meltsaltflux[1:][data["ts"]>starttime]/polynaflux,c=color)
-    #ax6.plot(data["ts"][data["ts"]>starttime],polynaflux[data["ts"]>starttime],c=color)
+    #ax6.plot(data["offshorefraction"][data["ts"]>starttime],meltsaltflux[1:][data["ts"]>starttime]/polynaflux,c=color)
+    ax6.plot(data["ts"][data["ts"]>starttime],data["offshorefraction"][data["ts"]>starttime],c=color)
     ax6.set_xlabel("Time")
     ax6.set_ylabel("Meltflux/polynaflux")
 
@@ -1271,7 +1273,6 @@ def folderMapMoreGeneric(func,runsdict):
                             #print("yeesh")
 
 def folderMapRefresh(runsdict,save=False):
-    fig,axises = plt.subplots(1,1,figsize=(8,7))
     prepath = os.path.abspath(os.getcwd()).replace("analysis","experiments")
     for k in runsdict.keys():
         for f in glob.glob(str(prepath+"/"+k+"/*"), recursive = True):
@@ -1415,7 +1416,14 @@ def volumetricTS(fname,description,res=1,show=True,savepath=False):
     #zonal_average = ds.mean(dim="XC",skipna=True)
     ds = open_mdsdataset(fname,prefix=["SALT","THETA"],ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
     yice = grabMatVars(fname[:-1],("Yicefront"))["Yicefront"][0][0]
-    ds = ds.where(ds.YC<yice,drop=True)
+    variables = grabMatVars(fname,('tNorth','tEast','sEast','zz','pp'))
+
+    tEast = np.asarray(variables["tEast"])
+    sEast = np.asarray(variables["sEast"])
+    tEast = tEast[int(tEast.shape[0]-1)]
+    sEast = sEast[int(sEast.shape[0]-1)]
+
+    ds = ds.where(ds.YC<yice-10000,drop=True)
     salt = ds.SALT.values
     theta = ds.THETA.values
     volume = (ds.hFacC * ds.drF * ds.rA).values
@@ -1425,7 +1433,7 @@ def volumetricTS(fname,description,res=1,show=True,savepath=False):
 
     times=np.asarray(times)
     times = times*grabDeltaT(fname)/60.0/60.0/24.0/365.0
-    timemask = times>5
+    timemask = times>1
     print(times)
     #for k in tqdm(range(0,length,res)):
 
@@ -1433,7 +1441,7 @@ def volumetricTS(fname,description,res=1,show=True,savepath=False):
     print(salt[-1].flatten().shape)
     print(volume.shape)
     im=ax1.hist2d(np.mean(salt[timemask],axis=0).flatten(),np.mean(theta[timemask],axis=0).flatten(),weights=volume.flatten(),density=True,bins=100,cmin=0.001,range=[[34,35],[-2.4,-1.6]],norm="log")
-    plt.colorbar(im[3],ax=ax1)
+    #plt.colorbar(im[3],ax=ax1)
     #ax1.set_xlim([34.1,34.75])
     #ax1.set_ylim([-2.25,-1.790])
     plt.title(description)

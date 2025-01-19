@@ -24,19 +24,26 @@ runsdict = {\
                 #"width16":{"specialstring":['sf10salted250'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
                 "width16":{"specialstring":['salted75','salted150','salted250','saltedsf25w75','saltedsf25w150','saltedsf25w250','nobathsaltedsf10250','nobathsaltedsf1075','nobathsaltedsf10150'], "marker":["x"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
                 #"width16":{"specialstring":['salted75','salted250','salted150','sf10salted250','nobathsaltedsf10150','nobathsaltedsf1075','nobathsaltedsf10250','saltedsf25w250','saltedsf25w75'], "marker":["x"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","teal","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
-                #"width16":{"specialstring":['saltedsf25w75','saltedsf25w150','saltedsf25w250'], "marker":["$w$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna","orange","black","light green"]*2,"description":["Different shelf depths"]},\
-                #"width16":{"specialstring":['saltedsf25w75','saltedsf25w150','saltedsf25w250'], "marker":["$w$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna","orange","black","light green"]*2,"description":["Different shelf depths"]},\
-                #"width16":{"specialstring":['salted75','salted150','salted250',], "marker":["$w$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
                 #"icefront16":{"specialstring":['sf2point5front150','sf2point5front75','coldersf50front100'], "marker":["$if$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
-                "icefront16":{"specialstring":['coldersf50front75','coldersf50front100','coldersf50front150','coldersf4front75','coldersf4front100','coldersf4front150','sf2point5front150','sf2point5front75','sf2point5front100','sf4front150','sf4front75','sf4front100'], "marker":["$if$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
+                #full "icefront16":{"specialstring":['coldersf50front75','coldersf50front100','coldersf50front150','coldersf4front75','coldersf4front100','coldersf4front150','sf2point5front150','sf2point5front75','sf2point5front100','sf4front150','sf4front75','sf4front100'], "marker":["$if$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
                 #"icefront16":{"specialstring":['coldersf50front75','coldersf50front100','coldersf50front150'], "marker":["$if$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
                 #"icefront16":{"specialstring":['coldersf50front100'], "marker":["x"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                 #"varysf16":{"specialstring":['sf50'], "marker":["v"]*20 ,"color":["tan","green","gray","olive","cyan","rosybrown","sienna"],"description":["Different shelf depths"]},\
                 #"varysf16":{"specialstring":['sf3d900','sf3cd700'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
-                #"varysf16":{"specialstring":['sf3d900','sf3cd700','sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf150','imroved-coldstart-warm-sf8','imroved-warmstart-warm-sf10','imroved-coldstart-warm-sf10'], "marker":["$sf$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf150','imroved-coldstart-warm-sf8','imroved-warmstart-warm-sf10','imroved-coldstart-warm-sf10'], "marker":["$sf$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"marker":["$sf$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                 #'imroved-warmstart-warm-sf8',
-                "varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150','sf3d300','imroved-coldstart-warm-sf8','imroved-warmstart-warm-sf8','imroved-warmstart-warm-sf5','imroved-coldstart-warm-sf5','sf3d900','imroved-warmstart-warm-sf10','imroved-coldstart-warm-sf10','sf3cd150','sf3cd450','sf3cd700'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
-                #"varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                "varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150','sf3d300','sf3cd150','sf3cd450','sf3cd700','sf3d900','imroved-coldstart-warm-sf8','imroved-warmstart-warm-sf8','imroved-warmstart-warm-sf5','imroved-coldstart-warm-sf5','imroved-warmstart-warm-sf10','imroved-coldstart-warm-sf10'], "marker":["$sf$"]*14+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"varysf16":{"specialstring":['sf150'], "marker":["v"]*14+["$h$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"varysf16":{"specialstring":['imroved-coldstart-warm-sf8','imroved-warmstart-warm-sf8','imroved-warmstart-warm-sf5','imroved-coldstart-warm-sf5','imroved-warmstart-warm-sf10','imroved-coldstart-warm-sf10'], "marker":["v"]*14+["$h$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                # DONE "varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150','sf3d300','imroved-coldstart-warm-sf8','imroved-warmstart-warm-sf8','imroved-warmstart-warm-sf5','imroved-coldstart-warm-sf5','sf3d900','imroved-warmstart-warm-sf10','imroved-coldstart-warm-sf10','sf3cd150','sf3cd450','sf3cd700'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"varysf16":{"specialstring":['sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"varysf16":{"specialstring":['sf1','sf10','sf150'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"varysf16":{"specialstring":['sf1','sf10'], "marker":["v"]*20 ,"color":["green","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                "morediagsenhancedgprime16":{"specialstring":['sf10bump-20points','sf10bump20points','sf1bump-20points','sf1bump20points','sf10bump40points'], "marker":["$g'$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"morediagsenhancedgprime16":{"specialstring":['sf1bump-20points','sf1bump20points','sf10bump40points'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                ##"varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                 #"varysf16":{"specialstring":['sf1','sf2','imroved-coldstart-warm-sf5','imroved-warmstart-warm-sf5','imroved-warmstart-warm-sf8'], "marker":["v"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
                 #"varysf16":{"specialstring":['coldstart-warm-sf20','warm-sf10','sf10'], "marker":["v","v","v","v"] ,"color":["pink","red","orange","black"],"description":["Different shelf depths"]},\
                 #"colderboring16":{"specialstring":['d601'], "marker":["o","o","o"] ,"color":["blue"],"description":["Different shelf depths"]},\
@@ -44,13 +51,18 @@ runsdict = {\
                 }
 #fastExplosionCheck(runsdict)
 
-#graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf3d300/results","Reference",quant="SALT",dim="meridional",selval=150*1000)
+#graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf1bump20points/results","Reference",quant="SALT",dim="meridional",selval=150*1000,fixcb=True)
+#graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf150/results","Reference",show=True)
 #plt.show()
-
+#graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
+#plt.show()
+##graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf1bump-20points/results","Reference",quant="SALT",dim="meridional",selval=150*1000,fixcb=True)
+#plt.show()
+#
 #graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/width16/unsalted250/results","reference",200*10**3,quant="SALT",dim="meridional",show=True)
 #folderMapRefresh(runsdict)
-#graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results/","sf1")
-#graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf2/results/","sf2")
+#graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf10bump20points/results/","sf10bump20points")
+#graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf10bump-20points/results/","sf10bump-20points")
 #graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/icefront16/coldersf50front150/results/","coldersf50front150")
 #graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/varysf16/imroved-warmstart-warm-sf8/results/","sf4")
 #graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf5/results/","sf5")
@@ -60,10 +72,13 @@ runsdict = {\
 #graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf100/results/","sf100")
 #folderMap(runsdict)
 #plt.show()
-analysis.saltBoxes("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/results")
+#analysis.massBoxes("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results")
+#analysis.massBoxes("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf4/results")
+#analysis.massBoxes("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf5/results")
+#analysis.massBoxes("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf150/results")
 #folderMapTimeSeries(runsdict,"")
-#graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
-#plt.show()
+graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
+plt.show()
 #plt.show()
 #plt.show()
 #
@@ -116,6 +131,7 @@ analysis.saltBoxes("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/result
 
 #folderMapGeneric(steadyStateAverageSimple,runsdict)
 #folderMapGeneric(gprimeWidth,runsdict)
+plt.show()
 #folderMapGeneric(saltBudget,runsdict)
 #plt.show()
 #folderMapGeneric(steadyStateAverageSimple,runsdict)

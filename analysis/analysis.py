@@ -1,16 +1,20 @@
 from matlabglib import GLIBfromFile
+from sklearn.linear_model import LinearRegression
 import numpy as np
 from jmd95 import dens
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 from datainput import *
+import matplotlib
 from xmitgcm import open_mdsdataset
+#from scipy.stats import pearsonr
+rng = np.random.default_rng(0)
 from tqdm import tqdm
 import os
 import gsw
 
 ## Get temperature at depth)
-def intTemp(depth,zgl,fname):
+def intTemp(depth,zgl,fname,fixsal=None):
     variables = grabMatVars(fname,('tNorth','tEast','sEast','zz','pp'))
     ## forcing temperature along eastern boundary
     tEast = np.asarray(variables["tEast"])#[0]+1.8
@@ -20,7 +24,10 @@ def intTemp(depth,zgl,fname):
     ## forcing temperature at north eastern end of domain
     tEast = tEast[int(tEast.shape[0]-1)]
     sEast = sEast[int(sEast.shape[0]-1)]
-    Tf= (0.0901-0.0575*sEast) - (7.61*10**(-4))*pp
+    if fixsal:
+        Tf= (0.0901-0.0575*fixsal) - (7.61*10**(-4))*pp
+    else:
+        Tf= (0.0901-0.0575*sEast) - (7.61*10**(-4))*pp
     print(zz[0])
     tEast = tEast-Tf
     #tEast = tEast+1.9
@@ -31,6 +38,7 @@ def intTemp(depth,zgl,fname):
     result = quad(f_interp,zgl,min(zgl+100,0), points = zz[::-1])[0]
     result = ((result/min(100,abs(zgl))))
     return result
+
 ## Get temperature at depth)
 def fpAtGl(zgl,salt):
     Tf= (0.0901-0.0575*salt) - (7.61*10**(-4))*abs(zgl)
@@ -217,30 +225,43 @@ def FStheory(fname,xval,include_stats=True):
         #return Tcdw*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
         #return np.nanmean(data["ts"])*hShelf*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
         #return 0,-data["shiflx"]/(60*60*24*365),stats 
-        if np.abs(np.mean(meltsaltflux)/np.mean(polynaflux)) > 0.6:
+
+        localdens = dens(sNorth,tNorth,0)
+        rho_1i = np.logical_and(zz>zz[zpyci],zz<zz[zpyci]+abs(tcline_height))
+        rho_2i = np.logical_and(zz>zz[zpyci]-abs(tcline_height),zz<zz[zpyci])
+        ce = 0.016
+        rho0 = 1025
+        #rho0 = np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
+        B0 = (np.mean(meltsaltflux)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+        P = shelf_width+2*10000
+        #return -np.nanmean(localdens[rho_2i])+np.nanmean(localdens[rho_1i]) + ((1/ce)**0.5) * ((rho0)/(9.8*tcline_height))*np.sign(B0)*np.abs(f*shelf_width*B0/P)**0.5,data["gprime"],stats
+        print(np.nanmean(localdens[rho_1i]),np.nanmean(localdens[rho_2i]))
+        #return np.abs(np.nanmean(localdens[rho_2i])-np.nanmean(localdens[rho_1i])) + ((1/ce)**0.5) * ((np.nanmean(localdens[rho_1i]))/(9.8*tcline_height))*np.sign(B0)*np.abs(f*shelf_width*B0/P)**0.5,data["offshorefraction"],stats
+        #return (np.mean(meltsaltflux)-np.mean(polynaflux))*gprime_ext,data["gprime"],stats
+        if np.abs(np.nanmean(localdens[rho_2i])-np.nanmean(localdens[rho_1i])) + ((1/ce)**0.5) * ((np.nanmean(localdens[rho_1i]))/(9.8*tcline_height))*np.sign(B0)*np.abs(f*shelf_width*B0/P)**0.5 > 0.3:
                 #return np.nan*Tcdw*ices*gprime_ext*deltaH,-data["shiflx"]/(60*60*24*365),stats
                 Tf = fpAtGl(zgl,np.nanmean(data["salt"]))
                 #Tf = fpAtGl(zgl,np.nanmean(S))
                 #return ices*(np.nanmean(T)-Tf)**2,-data["shiflx"]/(60*60*24*365),stats
                 #return (np.abs(np.mean(polynaflux))),(np.abs(np.mean(polynaflux))-np.abs(np.mean(meltsaltflux)))/(np.abs(np.mean(polynaflux))),stats
-                return np.nan*(deltaH/1)*(np.nanmean(data["theta"])-Tf)*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
+                # this was the latest fyi return np.nan*(deltaH/1)*(np.nanmean(data["theta"])-Tf)*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
                 #return (deltaH/1)*(Tcdw-Tf)*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
                 #return np.nanmean(data["theta"])+1.8,-data["shiflx"]/(60*60*24*365),stats
                 ##yind = np.argmin(np.abs(ds.YC.values-40*10**3))
                 #halfmelt = -np.sum(ds.SHIfwFlx[10:,:yind,:],axis=[0,1,2])
                 #return deltaH*(np.nanmean(data["theta"])-Tf)*(data["gprime"])/(f)*ices,halfmelt/(60*60*24*365),stats
+                return np.nan,stats
         else:
                 #return Tcdw*(data["gprime"])*deltaH/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
                 #return np.nanmean(data["ts"])*-hShelf[0][0]*data["gprime"]/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
                 #return (np.nanmen(data["ts"]+2))*data["gprime"]*hShelf/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
-                Tf = fpAtGl(zgl,np.nanmean(data["salt"]))
-                #Tf = fpAtGl(zgl,34.65)
+                #Tf = fpAtGl(zgl,np.nanmean(data["salt"]))
+                Tf = fpAtGl(zgl,34.65)
                 #return ices*np.mean(polynaflux)/vol,-data["shiflx"]/(60*60*24*365),stats
                 #return ices*(np.abs(np.mean(polynaflux)))/(shelf_width*hShelf),-data["shiflx"]/(60*60*24*365),stats
                 #return ices*(data["salt"]),-data["shiflx"]/(60*60*24*365),stats
                 #return hShelf*ices*np.mean(polynaflux)/np.sum(h[saltfluxvals!=0]),-data["shiflx"]/(60*60*24*365),stats
-                print("polynaflux",polynaflux)
-                deltaS = (34.35+(np.mean(polynaflux)/(np.sum(h[saltfluxvals!=0])*dx*dy))*642)-34
+                deltaS = (sNorth[np.argmin(np.abs(np.abs(zz)-abs(hub)))]+(np.mean(polynaflux)/(np.sum(h[saltfluxvals!=0])*dx*dy))*642)-34
                 #return ices*np.mean(polynaflux),-data["shiflx"]/(60*60*24*365),stats
                 #return polynaflux/(np.sum(h[saltfluxvals!=0])*dx*dy),data["entrancetheta"],stats
                 #return hShelf*polynaflux*gprime_ext,-data["shiflx"],stats
@@ -248,7 +269,15 @@ def FStheory(fname,xval,include_stats=True):
                 #return ices*data["gprime"]*(data["theta"]-Tf)*thick,-data["shiflx"]/(60*60*24*365),stats
                 #return np.log10(-np.mean(polynaflux))*Tf*ices,-data["shiflx"]/(60*60*24*365),stats
                 #return ((abs(hShelf)-200)/1)*deltaS*ices*(-1.8-Tf),-data["shiflx"]/(60*60*24*365),stats
-                return gprime_ext*ices*deltaS*(abs(hShelf)-200),-data["shiflx"]/(60*60*24*365),stats
+                #return gprime_ext*ices*Tf*(abs(hShelf)-200),-data["shiflx"],stats
+                #return ices*(abs(hShelf)-200),-data["shiflx"],stats
+
+                #return deltaS*Tcdw*(abs(hShelf)-200),-data["shiflx"],stats
+                #return ices*deltaS*Tcdw*(abs(hShelf)-200),-data["shiflx"],stats
+                #return ices*abs(hShelf)*Tcdw,-data["shiflx"],stats
+                Tcdw = intTemp(hub,zgl,fname,fixsal=data["entrancesalt"])
+                # this was the latest fyi return (deltaS)*ices*hShelf*(-1.8-Tf),-data["shiflx"],stats
+                #return gprime_ext,data["gprime"],stats
                 #return (-1.9-Tf)*(np.mean(polynaflux))/vol*thick*ices,-data["shiflx"]/(60*60*24*365),stats
                 #return ((abs(hShelf)-200)/1)*(np.nanmean(data["theta"])-Tf)*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
                 #return ((abs(hShelf)-200)/1)*(-1.8-Tf)*(gprime_ext)/(f)*ices,-data["shiflx"]/(60*60*24*365),stats
@@ -377,8 +406,6 @@ def timeSeries(fname,refresh=False):
     times=getIterNums(fname)
     ds = open_mdsdataset(fname,prefix=["THETA","SALT","momKE","SHIfwFlx","VVEL","UVEL","WVEL","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
     ## theta plot
-    print(ds)
-    print(fname)
     ts = ds.time.values*grabDeltaT(fname)/60.0/60.0/24.0/365.0
     tsnew = np.full_like(ts,0,dtype=float)
     tsnew[:] = ts
@@ -388,7 +415,18 @@ def timeSeries(fname,refresh=False):
     yice = grabMatVars(fname,("Yicefront"))["Yicefront"][0][0]
     yshelf = grabMatVars(fname,("Yshelfbreak"))["Yshelfbreak"][0][0]
     ycoast = grabMatVars(fname,("Ycoast"))["Ycoast"][0][0]
-    cavity = ds.where(ds.YC<yice,drop=True)
+    Xeast = grabMatVars(fname,("Xeast"))["Xeast"][0][0]
+    Xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
+    
+    variables = grabMatVars(fname,("tEast",'sEast','zz'))
+    tNorth = np.asarray(variables["tEast"])[-1,:]
+    sNorth = np.asarray(variables["sEast"])[-1,:]
+
+    cavity = ds.where(ds.YC<yice-10000,drop=True)
+    cavity = cavity.where(cavity.XC<np.max(cavity.XC.values)-10000,drop=True)
+    cavity = cavity.where(cavity.XC>np.min(cavity.XC.values)+10000,drop=True)
+       
+
     volume = (ds.hFacC * ds.drF * ds.rA).values
     cavvolume = (cavity.hFacC * cavity.drF * cavity.rA).values
     volumesum = np.sum(volume)
@@ -402,6 +440,7 @@ def timeSeries(fname,refresh=False):
 
     salts = []
     SALT = cavity.SALT.values
+
     for k in range(cavity.THETA.shape[0]):
         salts.append((np.sum(SALT[k]*cavvolume))/cavvolumesum)
 
@@ -416,13 +455,10 @@ def timeSeries(fname,refresh=False):
     incavity = []
     vvel = ds.VVEL.values
     ht = vvel*(ds.THETA.values+1.8)*(ds.RHOAnoma.values+1000)
-    print(ds.THETA)
     #frontmask = ds.hFacC[:,np.nanargmin(np.abs(ds.VVEL.YG-(yice-10000))),:]==0
     index = np.argmin(np.abs(ds.VVEL.YG.values-(yice-50000)))
 
     polyna = ds.where(ds.YC>=yice,drop=True)
-    polyna = polyna.where(polyna.YC<=yice+10000,drop=True)
-    polyna = polyna.where(polyna.hFacC!=0)
     polynasaltdiff = polyna.where(polyna.Z>-300,drop=True).mean(dim=["Z","XC","YC"]) - polyna.where(polyna.Z<-300,drop=True).mean(dim=["Z","XC","YC"])
     polynasaltdiff = polynasaltdiff.SALT.values
 
@@ -467,6 +503,7 @@ def timeSeries(fname,refresh=False):
     icesurfacevels = []
     icesurfacesalts = []
     meltapprox=[]
+    offshorefraction = massBoxes(fname,ds=ds)
 
     for k in range(THETA.shape[0]):
         icesurfacetemps.append(np.nansum(THETA[k][icem])/np.sum(icem))
@@ -474,8 +511,8 @@ def timeSeries(fname,refresh=False):
         icesurfacesalts.append(np.nansum(SALT[k][icem])/np.sum(icem))
         meltapprox.append(np.nansum((THETA[k]*VEL[k])[icem])/np.sum(icem))
 
-    gprimes,ssurf,scdw,tsurf,tcdw = mixedLayerQuant(ds,fname)
-    #gprimes,ssurf,scdw,tsurf,tcdw,froude = np.nan,np.nan,np.nan,np.nan,np.nan,np.nan
+    #gprimes,ssurf,scdw,tsurf,tcdw = mixedLayerQuant(ds,fname)
+    gprimes,ssurf,scdw,tsurf,tcdw,froude = np.empty(ts.shape),np.empty(ts.shape),np.empty(ts.shape),np.empty(ts.shape),np.empty(ts.shape),np.empty(ts.shape)
     output = {"ts":np.asarray(ts)[nanmask],"theta":np.asarray(thetas)[nanmask],"salt":np.asarray(salts)[nanmask],\
         "kes":np.asarray(kes)[nanmask],"avgbts":np.asarray([]),\
         "shiflx":np.asarray(shiwflxs)[nanmask],"bottemp":np.asarray(bottomtemps)[nanmask],"icesurfacetemp":np.asarray(icesurfacetemps)[nanmask],\
@@ -485,19 +522,21 @@ def timeSeries(fname,refresh=False):
         "ssurf":np.asarray(ssurf)[nanmask],"scdw":np.asarray(scdw)[nanmask],"tsurf":np.asarray(tsurf)[nanmask],"tcdw":np.asarray(tcdw)[nanmask],\
         "polynasaltdiff":np.asarray(polynasaltdiff)[nanmask],\
         "entrancesalt":np.asarray(entrancesalt)[nanmask],\
-        "entrancetheta":np.asarray(entrancetheta)[nanmask]\
+        "entrancetheta":np.asarray(entrancetheta)[nanmask],
+        "offshorefraction":np.asarray(offshorefraction)[nanmask]\
     }
     with open("data/modelTimeSeries/"+slug,"wb") as f:
         pickle.dump(output,f)
     return output
 
 
-def saltBoxes(fname):
+def massBoxes(fname,ds=None,show=False):
 
     times=getIterNums(fname)
 
-    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
-    ds = open_mdsdataset(fname,prefix=["THETA","SALT","momKE","SHIfwFlx","VVELSLT","UVELSLT","WVEL","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
+    if not ds:
+        extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
+        ds = open_mdsdataset(fname,prefix=["UVEL","VVEL","THETA","SALT","momKE","SHIfwFlx","WVEL","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
     times = np.asarray( [0]+list(ds.time.values))*(10**-9)
 
     yice = grabMatVars(fname,("Yicefront"))["Yicefront"][0][0]
@@ -506,19 +545,131 @@ def saltBoxes(fname):
     xeast = grabMatVars(fname,("Xeast"))["Xeast"][0][0]
     xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
     saltfluxvals = grabMatVars(fname,("saltfluxvals"))["saltfluxvals"].T
-    print(np.sum(saltfluxvals[:])*ds.dxG[0][0].values*ds.dyG[0][0].values)
-    vvel = ds.VVELSLT.values
-    #vvel = (vvel + np.roll(vvel,-1,axis=2))/2
-    uvel = ds.UVELSLT.values
-    #uvel = (uvel + np.roll(uvel,-1,axis=3))/2
-    merid_salt_transport = ds.dxG.values*(ds.hFacC*ds.drF).values*vvel*(ds.RHOAnoma.values+1027)
-    zonal_salt_transport = ds.dyC.values*(ds.hFacC*ds.drF).values*uvel*(ds.RHOAnoma.values+1027)
+    vvel = ds.VVEL.values
+    #vvel = ds.SALT.values*vvel#(vvel + np.roll(vvel,-1,axis=2))/2
+    uvel = ds.UVEL.values
+    wvel = ds.WVEL.values
+    #uvel = ds.UVEL.values
+    #uvel = ds.SALT.values*uvel#(uvel + np.roll(uvel,-1,axis=3))/2
+    merid_salt_transport = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*1027
+    zonal_salt_transport = ds.dyC.values*(ds.hFacW*ds.drF).values*uvel*1027
+    top_salt_transport = ds.rA.values*wvel*1027
     #zonal_salt_transport =  ds.SALT.values
-    fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
+    #fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
 
     #infront_polyna_y = np.argmin(np.abs(ds.YG.values-(yice+10000)))-1
     #back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)+1
-    back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)+1
+    back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)-1
+    #back_polyna_y = np.argmin(np.abs(ds.YG.values-(yice)))+1
+    #infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-1
+    infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-2
+
+    print(ds.YC[back_polyna_y].values)
+    print(ds.YC[infront_polyna_y].values)
+
+    #west_polyna_x = np.argmax(saltfluxvals[infront_polyna_y-1,:]!=0)
+    #east_polyna_x = saltfluxvals.shape[1]-np.argmax(saltfluxvals[infront_polyna_y-1,::-1]!=0)-1
+
+    east_polyna_x = np.argmin(np.abs(ds.XC.values-(xeast)))+1
+    west_polyna_x = np.argmin(np.abs(ds.XC.values-(xwest)))
+
+    topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-200))
+    north_polyna_face = merid_salt_transport[:,topface_i:,infront_polyna_y,west_polyna_x:east_polyna_x]
+    south_polyna_face = merid_salt_transport[:,topface_i:,back_polyna_y,west_polyna_x:east_polyna_x]
+    #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,west_polyna_x-1]
+    #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,east_polyna_x]
+    #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,west_polyna_x]
+    #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,east_polyna_x]
+    west_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,west_polyna_x]
+    east_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,east_polyna_x]
+
+    top_polyna_face = top_salt_transport[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x]
+ 
+    dx = np.gradient(ds.XG)[0]
+    dy = np.gradient(ds.YG)[0]
+    total = np.sum(south_polyna_face,axis=(1,2))+np.sum(west_polyna_face,axis=(1,2)) \
+            -np.sum(east_polyna_face,axis=(1,2))-np.sum(north_polyna_face,axis=(1,2)) \
+            -np.sum(top_polyna_face,axis=(1,2))
+    salt = ds.SALT.values 
+    saltinpolyna = []
+    fluxdivvol = []
+    polynaflux = -np.sum(saltfluxvals[back_polyna_y:infront_polyna_y+1,west_polyna_x:east_polyna_x+1])*dx*dy
+    for k in range(salt.shape[0]):
+        salttslice = salt[k]
+        vol = ((ds.hFacC*ds.drF)*dx*dy)
+        averagesalt = ds.SALT[k]*vol
+        averagesalt = np.sum(averagesalt.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))/np.sum(vol.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))
+    
+        saltinpolyna.append(averagesalt)
+        W = (-west_polyna_x+east_polyna_x)*dx
+        L = (-back_polyna_y+infront_polyna_y)*dy
+        if k ==0:
+                deltaT = float(times[0])
+        else:
+                deltaT = float(times[k+1]-times[k])
+        fluxdivvol.append(deltaT*(total[k]+polynaflux)/(np.sum(vol.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))))
+    fluxvol = np.cumsum(fluxdivvol)
+    fluxvol = fluxvol+saltinpolyna[0]
+
+    #topavg = -np.sum(top_polyna_face,axis=(1,2))/10**8
+    #northavg = -np.sum(north_polyna_face,axis=(1,2))/10**8
+    #eastavg = -np.sum(east_polyna_face,axis=(1,2))/10**8
+    #southavg = np.sum(south_polyna_face,axis=(1,2))/10**8
+    #westavg = np.sum(west_polyna_face,axis=(1,2))/10**8
+    #top_polyna_face[top_polyna_face>0]=0
+    #north_polyna_face[north_polyna_face>0]=0
+    #east_polyna_face[east_polyna_face>0]=0
+    ##south_polyna_face[south_polyna_face<0]=0
+    #west_polyna_face[west_polyna_face<0]=0
+
+    topavg = -np.sum(top_polyna_face,axis=(1,2))/10**8
+    northavg = -np.sum(north_polyna_face,axis=(1,2))/10**8
+    eastavg = -np.sum(east_polyna_face,axis=(1,2))/10**8
+    southavg = np.sum(south_polyna_face,axis=(1,2))/10**8
+    westavg = np.sum(west_polyna_face,axis=(1,2))/10**8
+
+    totalavg = total/10**8
+    if show:
+        matplotlib.rcParams.update({'font.size': 22})
+        fig, (ax1) = plt.subplots(1,1,figsize=(10,12))
+        ax1.axhline(y=0,linewidth=1, color='black')
+        barlabels = ['top','north','east','south','west','total']
+        avgs = [np.mean(topavg[10:]),np.mean(northavg[10:]),np.mean(eastavg[10:]),np.mean(southavg[10:]),np.mean(westavg[10:]),np.mean(totalavg[10:])]
+        ax1.bar(barlabels,avgs,width=0.5)
+        #ax1.set_ylim(-30,30)
+        ax1.set_ylabel("(g/kg)*kg/s (in 10**8)")
+        plt.xticks(rotation=30, ha='right')
+        plt.show()
+    return topavg#/(northavg)
+ 
+
+def saltBoxes(fname):
+
+    times=getIterNums(fname)
+
+    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
+    ds = open_mdsdataset(fname,prefix=["UVEL","VVEL","THETA","SALT","momKE","SHIfwFlx","VVELSLT","UVELSLT","WVEL","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
+    times = np.asarray( [0]+list(ds.time.values))*(10**-9)
+
+    yice = grabMatVars(fname,("Yicefront"))["Yicefront"][0][0]
+    yshelf = grabMatVars(fname,("Yshelfbreak"))["Yshelfbreak"][0][0]
+    ycoast = grabMatVars(fname,("Ycoast"))["Ycoast"][0][0]
+    xeast = grabMatVars(fname,("Xeast"))["Xeast"][0][0]
+    xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
+    saltfluxvals = grabMatVars(fname,("saltfluxvals"))["saltfluxvals"].T
+    vvel = ds.VVELSLT.values
+    #vvel = ds.SALT.values*vvel#(vvel + np.roll(vvel,-1,axis=2))/2
+    uvel = ds.UVELSLT.values
+    #uvel = ds.UVEL.values
+    #uvel = ds.SALT.values*uvel#(uvel + np.roll(uvel,-1,axis=3))/2
+    merid_salt_transport = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*1027
+    zonal_salt_transport = ds.dyC.values*(ds.hFacW*ds.drF).values*uvel*1027
+    #zonal_salt_transport =  ds.SALT.values
+    #fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
+
+    #infront_polyna_y = np.argmin(np.abs(ds.YG.values-(yice+10000)))-1
+    #back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)+1
+    back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)
     #back_polyna_y = np.argmin(np.abs(ds.YG.values-(yice)))+1
     #infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-1
     infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-1
@@ -529,63 +680,90 @@ def saltBoxes(fname):
     east_polyna_x = np.argmin(np.abs(ds.XC.values-(xeast)))+1
     west_polyna_x = np.argmin(np.abs(ds.XC.values-(xwest)))
 
-    north_polyna_face = merid_salt_transport[:,:,infront_polyna_y,west_polyna_x+1:east_polyna_x]
-    south_polyna_face = merid_salt_transport[:,:,back_polyna_y,west_polyna_x+1:east_polyna_x]
+    north_polyna_face = merid_salt_transport[:,:,infront_polyna_y,west_polyna_x:east_polyna_x]
+    south_polyna_face = merid_salt_transport[:,:,back_polyna_y,west_polyna_x:east_polyna_x]
     #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,west_polyna_x-1]
     #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,east_polyna_x]
-    west_polyna_face = zonal_salt_transport[:,:,back_polyna_y+1:infront_polyna_y,west_polyna_x]
-    east_polyna_face = zonal_salt_transport[:,:,back_polyna_y+1:infront_polyna_y,east_polyna_x]
-    #west_polyna_face = zonal_salt_transport[:,:,0:infront_polyna_y+1,west_polyna_x]
-    #east_polyna_face = zonal_salt_transport[:,:,0:infront_polyna_y+1,east_polyna_x]
+    #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,west_polyna_x]
+    #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,east_polyna_x]
+    west_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y,west_polyna_x]
+    east_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y,east_polyna_x]
     #fig, (ax1,ax2,ax3) = plt.subplots(1,3)
     #h = grabMatVars(fname,("h"))["h"].T
     #im2d = np.zeros(zonal_salt_transport.shape[2:])
-    #im2d[infront_polyna_y,west_polyna_x+1:east_polyna_x] = 1
-    ##im2d[back_polyna_y,west_polyna_x+1:east_polyna_x] = 1
-    #im2d[back_polyna_y+1:infront_polyna_y,west_polyna_x] = 1
-    #im2d[back_polyna_y+1:infront_polyna_y,east_polyna_x] = 1
+    #im2d[infront_polyna_y,west_polyna_x:east_polyna_x+2] = 1
+    #im2d[back_polyna_y,west_polyna_x:east_polyna_x+2] = 1
+    #im2d[back_polyna_y:infront_polyna_y+2,west_polyna_x] = 1
+    #im2d[back_polyna_y:infront_polyna_y+2,east_polyna_x] = 1
     #ax1.imshow(im2d)
     #ax2.imshow(im2d)
     #saltfluxvals[saltfluxvals==0] = np.nan
     #ax2.imshow(saltfluxvals)
     #ax3.imshow(h)
-    #im2d[im2d==0] = np.nan
+    ##im2d[im2d==0] = np.nan
     #ax3.imshow(im2d)
     #plt.show()
  
     dx = np.gradient(ds.XG)[0]
     dy = np.gradient(ds.YG)[0]
-    total = np.sum(south_polyna_face,axis=(1,2))+np.sum(west_polyna_face,axis=(1,2))-np.sum(east_polyna_face,axis=(1,2))-np.sum(north_polyna_face,axis=(1,2))
+    total = np.sum(south_polyna_face,axis=(1,2))+np.sum(west_polyna_face,axis=(1,2)) \
+            -np.sum(east_polyna_face,axis=(1,2))-np.sum(north_polyna_face,axis=(1,2))
+
     salt = ds.SALT.values 
     saltinpolyna = []
     fluxdivvol = []
-        
+    polynaflux = -np.sum(saltfluxvals[back_polyna_y:infront_polyna_y+1,west_polyna_x:east_polyna_x+1])*dx*dy
     for k in range(salt.shape[0]):
         salttslice = salt[k]
-        salttslice[ds.hFacC==0]=np.nan
-        saltinpolyna.append(np.nanmean(salttslice[:,back_polyna_y:infront_polyna_y+1,west_polyna_x:east_polyna_x]))
-        fluxdivvol.append(total[k]/(np.sum((ds.hFacC*ds.drF)[:,back_polyna_y:infront_polyna_y+1,west_polyna_x:east_polyna_x])*dx*dy)*float(times[k]))
+        vol = ((ds.hFacC*ds.drF)*dx*dy)
+        averagesalt = ds.SALT[k]*vol
+        averagesalt = np.sum(averagesalt.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))/np.sum(vol.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))
+    
+        saltinpolyna.append(averagesalt)
+        W = (-west_polyna_x+east_polyna_x)*dx
+        L = (-back_polyna_y+infront_polyna_y)*dy
+        if k ==0:
+                deltaT = float(times[0])
+        else:
+                deltaT = float(times[k+1]-times[k])
+        fluxdivvol.append(deltaT*(total[k]+polynaflux)/(np.sum(vol.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))))
     fluxvol = np.cumsum(fluxdivvol)
     fluxvol = fluxvol+saltinpolyna[0]
 
-    ax1.imshow(north_polyna_face[4])
-    ax2.imshow(east_polyna_face[4])
-    ax3.imshow(south_polyna_face[4])
-    ax4.imshow(west_polyna_face[4])
+    #ax1.imshow(north_polyna_face[4])
+    #ax2.imshow(east_polyna_face[4])
+    #ax3.imshow(south_polyna_face[4])
+    #ax4.imshow(west_polyna_face[4])
+    #plt.show()
+    #fig, (ax1,ax2) = plt.subplots(1,2)
+    #timelen = north_polyna_face.shape[0]
+    #ax1.plot(range(timelen),-np.sum(north_polyna_face,axis=(1,2)),label="north")
+    #ax1.plot(range(timelen),-np.sum(east_polyna_face,axis=(1,2)),label="east")
+    #ax1.plot(range(timelen),np.sum(west_polyna_face,axis=(1,2)),label="west")
+    #ax1.plot(range(timelen),np.sum(south_polyna_face,axis=(1,2)),label="south")
+    #ax1.plot(range(timelen),total,label="total")
+    #ax1.axhline(y=polynaflux,color="black",label="Polyna flux")
+    ##plt.show()
+    barlabels = ['north','east','south','west','advective','polynaflux','total']
+    northavg = np.mean(-np.sum(north_polyna_face,axis=(1,2))[10:])/10**8
+    eastavg = np.mean(-np.sum(east_polyna_face,axis=(1,2))[10:])/10**8
+    southavg = np.mean(np.sum(south_polyna_face,axis=(1,2))[10:])/10**8
+    westavg = np.mean(np.sum(west_polyna_face,axis=(1,2))[10:])/10**8
+    totalavg = np.mean(total[5:])/10**8
+    matplotlib.rcParams.update({'font.size': 22})
+    fig, (ax1) = plt.subplots(1,1,figsize=(10,12))
+    ax1.axhline(y=0,linewidth=1, color='black')
+    avgs = [northavg,eastavg,southavg,westavg,totalavg,polynaflux/10**8,totalavg+polynaflux/10**8]
+    ax1.bar(barlabels,avgs,width=0.5)
+    ax1.set_ylim(-30,30)
+    ax1.set_ylabel("(g/kg)*kg/s (in 10**8)")
+    plt.xticks(rotation=30, ha='right')
     plt.show()
-    fig, (ax1,ax2) = plt.subplots(1,2)
-    timelen = north_polyna_face.shape[0]
-    ax1.plot(range(timelen),-np.sum(north_polyna_face,axis=(1,2)),label="north")
-    ax1.plot(range(timelen),-np.sum(east_polyna_face,axis=(1,2)),label="east")
-    ax1.plot(range(timelen),np.sum(west_polyna_face,axis=(1,2)),label="west")
-    ax1.plot(range(timelen),np.sum(south_polyna_face,axis=(1,2)),label="south")
-    ax1.plot(range(timelen),total,label="total")
-    ax1.axhline(y=-np.sum(saltfluxvals[back_polyna_y:infront_polyna_y+1,west_polyna_x:east_polyna_x])*dx*dy,color="black",label="Polyna flux")
-    meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
-    print(meltsaltflux)
-    ax1.plot(range(timelen),meltsaltflux,color="gray",label="Melt flux")
-    ax1.legend()
-    ax2.plot(range(timelen),saltinpolyna)
-    ax2.plot(range(timelen),fluxvol)
-    plt.show()
+    #meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+    #print(meltsaltflux)
+    #ax1.plot(range(timelen),meltsaltflux,color="gray",label="Melt flux")
+    #ax1.legend()
+    #ax2.plot(range(timelen),saltinpolyna)
+    #ax2.plot(range(timelen),fluxvol)
+    #plt.show()
  
