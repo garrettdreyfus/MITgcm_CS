@@ -384,15 +384,16 @@ def saltBudget(fname,xval,fig,ax1,title="",color="blue",marker="o"):
 
 def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     shortname,_ = outPath(fname)
+    shortname = shortname.split("|")[1]
     if xval == None:
         xval,shiflx,stats = FStheory(fname,xval)
         if ~np.isnan(xval):
-                ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname)
+                ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=100)
         return xval
 
     data = timeSeries(fname)
     shiflx = -np.nanmean(data["shiflx"])
-    ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname)
+    ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=100)
     return xval
 
 def steadyStateHT(fname,xval,fig,ax1,title="",color="blue",marker="o"):
@@ -1239,10 +1240,10 @@ def folderMapGeneric(func,runsdict,save=False):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
                 if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
-                    try:
-                        func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
-                    except:
-                        print("yeesh")
+                    #try:
+                    func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
+                    #except:
+                        #print("yeesh")
                 elif not key and False:
                     #try:
                     func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
@@ -1252,6 +1253,11 @@ def folderMapGeneric(func,runsdict,save=False):
             if save:
                 plt.savefig("/home/garrett/Projects/HUB/paperfigures/"+k+".png")        
 
+    #plt.xlabel(r'$(\frac{3}{2\alpha})^(\frac{1}{3}) \frac{1}{N} (\frac{B}{W})^(\frac{1}{3}))$',fontsize=18)
+    plt.xlabel(r'Chapman (1998) deep convection depth (m)',fontsize=16)
+    plt.ylabel(r'Average vertical velocity within polyna region across z=250m (m/s)',fontsize=16)
+    plt.gca().tick_params(axis='both', which='major', labelsize=12)
+    plt.axhline(y=0)
     plt.legend()
 
 def folderMapMoreGeneric(func,runsdict):
@@ -1457,57 +1463,57 @@ def buildPortfolio(fname,name):
     if not os.path.exists(foliopath):
         os.makedirs(foliopath)
     volumetricTS(fname,shortname,show=False,savepath=foliopath+"/volumetricTS.png")
-    meltMapAverage(fname[:-1],shortname,show=False,savepath=foliopath+"/meltmap.png")
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/150meridionalT.png")
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/150meridionalT-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/200meridionalT.png")
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/200meridionalT-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/250meridionalT.png")
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/250meridionalT-nf.png",fixcb=False)
+    meltMapAverage(fname,shortname,show=False,savepath=foliopath+"/meltmap.png")
+    crossSectionAverage(fname,shortname,150*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/150meridionalT.png")
+    crossSectionAverage(fname,shortname,150*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/150meridionalT-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,200*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/200meridionalT.png")
+    crossSectionAverage(fname,shortname,200*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/200meridionalT-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,250*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/250meridionalT.png")
+    crossSectionAverage(fname,shortname,250*10**3,quant="THETA",dim="meridional",show=False,savepath=foliopath+"/250meridionalT-nf.png",fixcb=False)
 ###
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/150meridionalS.png")
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/150meridionalS-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/200meridionalS.png")
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/200meridionalS-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/250meridionalS.png")
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/250meridionalS-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,150*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/150meridionalS.png")
+    crossSectionAverage(fname,shortname,150*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/150meridionalS-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,200*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/200meridionalS.png")
+    crossSectionAverage(fname,shortname,200*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/200meridionalS-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,250*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/250meridionalS.png")
+    crossSectionAverage(fname,shortname,250*10**3,quant="SALT",dim="meridional",show=False,savepath=foliopath+"/250meridionalS-nf.png",fixcb=False)
 #
 
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/150meridionalU.png")
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/150meridionalU-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/200meridionalU.png")
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/200meridionalU-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/250meridionalU.png")
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/250meridionalU-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,150*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/150meridionalU.png")
+    crossSectionAverage(fname,shortname,150*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/150meridionalU-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,200*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/200meridionalU.png")
+    crossSectionAverage(fname,shortname,200*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/200meridionalU-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,250*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/250meridionalU.png")
+    crossSectionAverage(fname,shortname,250*10**3,quant="UVEL",dim="meridional",show=False,savepath=foliopath+"/250meridionalU-nf.png",fixcb=False)
 
 
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/150meridionalD.png")
-    crossSectionAverage(fname[:-1],shortname,150*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/150meridionalD-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/200meridionalD.png")
-    crossSectionAverage(fname[:-1],shortname,200*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/200meridionalD-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/250meridionalD.png")
-    crossSectionAverage(fname[:-1],shortname,250*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/250meridionalD-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,150*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/150meridionalD.png")
+    crossSectionAverage(fname,shortname,150*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/150meridionalD-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,200*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/200meridionalD.png")
+    crossSectionAverage(fname,shortname,200*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/200meridionalD-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,250*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/250meridionalD.png")
+    crossSectionAverage(fname,shortname,250*10**3,quant="DENS",dim="meridional",show=False,savepath=foliopath+"/250meridionalD-nf.png",fixcb=False)
 ##
-    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/80zonalT.png")
-    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/80zonalT-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/140zonalT.png")
-    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/140zonalT-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/175zonalT.png")
-    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/175zonalT-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,80*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/80zonalT.png")
+    crossSectionAverage(fname,shortname,80*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/80zonalT-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,140*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/140zonalT.png")
+    crossSectionAverage(fname,shortname,140*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/140zonalT-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,175*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/175zonalT.png")
+    crossSectionAverage(fname,shortname,175*10**3,quant="THETA",dim="zonal",show=False,savepath=foliopath+"/175zonalT-nf.png",fixcb=False)
 ##
-    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/80zonalS.png")
-    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/80zonalS-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/140zonalS.png")
-    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/140zonalS-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/175zonalS.png")
-    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/175zonalS-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,80*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/80zonalS.png")
+    crossSectionAverage(fname,shortname,80*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/80zonalS-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,140*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/140zonalS.png")
+    crossSectionAverage(fname,shortname,140*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/140zonalS-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,175*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/175zonalS.png")
+    crossSectionAverage(fname,shortname,175*10**3,quant="SALT",dim="zonal",show=False,savepath=foliopath+"/175zonalS-nf.png",fixcb=False)
 ##
-    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/80zonalD.png")
-    crossSectionAverage(fname[:-1],shortname,80*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/80zonalD-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/140zonalD.png")
-    crossSectionAverage(fname[:-1],shortname,140*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/140zonalD-nf.png",fixcb=False)
-    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD.png")
-    crossSectionAverage(fname[:-1],shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,80*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/80zonalD.png")
+    crossSectionAverage(fname,shortname,80*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/80zonalD-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,140*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/140zonalD.png")
+    crossSectionAverage(fname,shortname,140*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/140zonalD-nf.png",fixcb=False)
+    crossSectionAverage(fname,shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD.png")
+    crossSectionAverage(fname,shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD-nf.png",fixcb=False)
 
     topMap(fname,shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT.png")
     topMap(fname,shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT-nf.png",fixcb=False)
