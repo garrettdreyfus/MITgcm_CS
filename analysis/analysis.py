@@ -226,15 +226,19 @@ def FStheory(fname,xval,include_stats=True):
 
         B0 = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
         P = shelf_width+2*10000
+        A = (shelf_width*10000)
+	
         #rhoanom_old = ((1/ce)**0.5) * ((np.nanmean(localdens[rho_1i]))/(9.8*tcline_height))*np.sign(B0)*np.abs(f*shelf_width*B0/P)**0.5
 
         #rhoanom = ((1/(alpha/2))**(2/3))*((rho0))/(9.8*abs(250))*-np.sign(B0)*(np.abs(B0)/(shelf_width))**(2/3)
-        he = (3/(2*0.025))**(1/3)*(1/(N))*(np.abs(B0)/(shelf_width))**(1/3)*np.sign(B0)
+        #he = (3/(2*0.025))**(1/3)*(1/(N))*(np.abs(B0)/(shelf_width))**(1/3)*np.sign(B0)
+        he = 3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*(1/N)*np.sign(B0)
+	
         
-        #return rhoanom,data["offshorefraction"],stats
+        #return he,data["mxldepth"],stats
         #return (np.nanmean(localdens[rho_1i])+rhoanom)-np.nanmean(localdens[rho_2i]) , data['offshorefraction'],stats
         #return np.abs(np.nanmean(localdens[rho_2i])-np.nanmean(localdens[rho_1i])) + rhoanom, data['offshorefraction'],stats
-        return he,-data['offshorefraction']*10**8/1027/(shelf_width*10000), stats
+        #return he,-data['offshorefraction']*10**8/1027/(shelf_width*10000), stats
         #return ((np.nanmean(localdens[rho_1i])) + rhoanom),dens(data["entrancesalt"],data["entrancetheta"],0), stats
         #return rhoanom,data['offshorefraction'],stats
         #return rhoanom_old, rhoanom_new,stats
@@ -256,11 +260,14 @@ def FStheory(fname,xval,include_stats=True):
                 #return Tcdw*ices*gprime_ext*deltaH/f, -data["shiflx"], stats
                 #return ((1/ce)**0.5)*(hShelf+200)*(B0*P/(f*shelf_width)), data['offshorefraction']*10**8,stats
                 fulldepthrho0 = np.mean(localdens[np.abs(zz)<hShelf+200])
+                B0 = (np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
 
+        	
                 #rhoanom = ((1/ce)**0.5) * ((fulldepthrho0)/(9.8*hShelf))*np.sign(B0)*np.abs(f*B0*shelf_width/P)**0.5
                 #rhoanom = ((1/ce)**(2/3))*((fulldepthrho0)/(9.8*abs(tcline_height)))*np.sign(B0)*(10000*np.abs(B0)/(shelf_width*10000))**(2/3)
                 print(B0,hShelf)#np.mean(polynaflux)/rho0*9.8*(7.8*10**(-4))
-                rhoanom = ((1/(alpha/2))**(2/3))*((rho0))/(9.8*(hShelf+200))*-np.sign(B0)*(np.abs(B0)/(shelf_width))**(2/3)
+                #rhoanom = ((1/(alpha/2))**(2/3))*((rho0))/(9.8*(hShelf+200))*-np.sign(B0)*(np.abs(B0)/(shelf_width))**(2/3)
+                rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(B0)/A)*(2*A/P))**(2/3)*-np.sign(B0)
 
                 Tf = fpAtGl(zgl,34.65)
                 plumerho = dens(34.10,-2.2,0)
@@ -269,9 +276,14 @@ def FStheory(fname,xval,include_stats=True):
 
                 gprimechapman = 9.8*(-plumerho+fulldepthrho0+rhoanom)/rho0
 
-                #return fulldepthrho0+rhoanom,dens(data["entrancesalt"],data["entrancetheta"],0),stats
+                #return gprimechapman,-data["shiflx"],stats
+
+                #return Tcdw*ices*gprime_ext*deltaH/f,-data["shiflx"],stats
+
+                return fulldepthrho0+rhoanom-1000,dens(data["entrancesalt"],data["entrancetheta"],0)-1000,stats
+                #return fulldepthrho0-1000,dens(data["entrancesalt"],data["entrancetheta"],0)-1000,stats
                 #return data["entrancesalt"],data["entrancetheta"],stats
-                return gprimechapman*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
+                #return gprimechapman*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
                 #return rhoanom,-data["shiflx"],stats
                 #return (rhoanom)*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
 
@@ -675,25 +687,15 @@ def saltBoxes(fname):
     xeast = grabMatVars(fname,("Xeast"))["Xeast"][0][0]
     xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
     saltfluxvals = grabMatVars(fname,("saltfluxvals"))["saltfluxvals"].T
+
     vvel = ds.VVELSLT.values
-    #vvel = ds.SALT.values*vvel#(vvel + np.roll(vvel,-1,axis=2))/2
     uvel = ds.UVELSLT.values
-    #uvel = ds.UVEL.values
-    #uvel = ds.SALT.values*uvel#(uvel + np.roll(uvel,-1,axis=3))/2
+
     merid_salt_transport = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*1027
     zonal_salt_transport = ds.dyC.values*(ds.hFacW*ds.drF).values*uvel*1027
-    #zonal_salt_transport =  ds.SALT.values
-    #fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
-
-    #infront_polyna_y = np.argmin(np.abs(ds.YG.values-(yice+10000)))-1
-    #back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)+1
     back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)
-    #back_polyna_y = np.argmin(np.abs(ds.YG.values-(yice)))+1
-    #infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-1
     infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-1
 
-    #west_polyna_x = np.argmax(saltfluxvals[infront_polyna_y-1,:]!=0)
-    #east_polyna_x = saltfluxvals.shape[1]-np.argmax(saltfluxvals[infront_polyna_y-1,::-1]!=0)-1
 
     east_polyna_x = np.argmin(np.abs(ds.XC.values-(xeast)))+1
     west_polyna_x = np.argmin(np.abs(ds.XC.values-(xwest)))

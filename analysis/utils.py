@@ -1,3 +1,7 @@
+import glob
+import os
+from datainput import *
+from tabulate import tabulate
 def legendFunction(runsdict):
     conversion={"d0":"cavityd0","d-200":"cavityd-200","slope200":"cavityd200","slope375":"cavityd375"}
     for k in runsdict.keys():
@@ -34,31 +38,25 @@ def fastExplosionCheck(runsdict,save=True):
 
 def generateRunsTable(runsdict):
     table = []
-    prettynames = {'shelf_depth':"Nominal depth of shelf", \
-            'rng_seed':"Random bathymetry seed used", 'random_amplitude':"Amplitude of random bathymetry",\
-            'cavity_depth':"Depth of cavity relative to depth of shelf", 'cavity_width': "Width of cavity",\
-            'yicefront':"Northward extent of ice shelf"}#, 'tcline_atshelf_depth': "Depth of temperature maximum"}
+    prettynames = {'shelf_depth':"Nominal depth of shelf(m)", \
+            'cavity_depth':"Depth of cavity relative to depth of shelf (m)",\
+            'cavity_width': "Width of cavity (m)",\
+            }#, 'tcline_atshelf_depth': "Depth of temperature maximum"}
     for k in runsdict.keys():
-        for f in glob.glob(str("/home/garrett/Projects/MITgcm_ISC/experiments/"+k+"/*"), recursive = True):
-            for l in range(len(runsdict[k]["specialstring"])):
-                key=runsdict[k]["specialstring"][l]
+        for f in glob.glob(str("/jbod/gdf/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
+            if os.path.basename(f) in runsdict[k]["specialstring"]:
                 fname = f+"/" #+"results/"
                 variables = grabMatVars(fname,("experiment_parameters"))
+                saltvals = grabMatVars(fname,("saltfluxvals",'s_mid'))
                 fields = variables["experiment_parameters"][0][0].__dict__
                 conversion={"d0":"cavityd0","d-200":"cavityd-200","slope200":"cavityd200","slope375":"cavityd375"}
                 d={}
-                if not runsdict[k]["specialstring"][0]:
-                    ss = k.split("-")[0]
-                else:
-                    ss = runsdict[k]["specialstring"][l]
-                if ss in conversion.keys():
-                    ss = conversion[ss]
-                d["Experiment Name"] = ss
+                d["Experiment Name"] = os.path.basename(f)
                 for j in fields.keys():
                     if j in prettynames.keys():
                         d[prettynames[j]] = fields[j][0][0]
-                if "Northward extent of ice shelf" not in d:
-                    d["Northward extent of ice shelf"]=150
+                d["Area average salt flux in polyna (g/kg)kg/m^2/s"] = np.min(np.asarray(saltvals["saltfluxvals"]).flatten())
+                d["Salinity at pycnocline (g/kg)"] = np.asarray(saltvals["s_mid"])[0][0]
                 if d not in table:
                     table.append(d)
     for k in table:print(k.keys())

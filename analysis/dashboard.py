@@ -1,10 +1,10 @@
 from graph import folderMap, folderMapRefresh, timeSeriesDashboard, folderMapTimeSeries
 import graph
 import analysis
+import utils
 import matplotlib.pyplot as plt
 
 
-#generateRunsTable(runsdict)
 #legendFunction(runsdict)
 #crossSectionAnim("/home/garrett/Projects/MITgcm_ISC/experiments/widthexp-GLIB-explore-32/at0w250/results/","")
 runsdict = {\
@@ -13,6 +13,9 @@ runsdict = {\
                 "varysf16":{"specialstring":['sf3sd300','sf3sd900','sf3cd150','sf3cd450','sf3cd700','sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                 "morediagsenhancedgprime16":{"specialstring":['s-20sf10','s-20sf10','s20sf10','s40sf10'], "marker":["$g'$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                 }
+
+utils.generateRunsTable(runsdict)
+exit()
 #fastExplosionCheck(runsdict)
 
 #graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf1bump20points/results","Reference",quant="SALT",dim="meridional",selval=150*1000,fixcb=True)

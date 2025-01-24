@@ -1253,11 +1253,15 @@ def folderMapGeneric(func,runsdict,save=False):
             if save:
                 plt.savefig("/home/garrett/Projects/HUB/paperfigures/"+k+".png")        
 
-    #plt.xlabel(r'$(\frac{3}{2\alpha})^(\frac{1}{3}) \frac{1}{N} (\frac{B}{W})^(\frac{1}{3}))$',fontsize=18)
-    plt.xlabel(r'Chapman (1998) deep convection depth (m)',fontsize=16)
-    plt.ylabel(r'Average vertical velocity within polyna region across z=250m (m/s)',fontsize=16)
+    #plt.xlabel(r'Chapman (1998) deep convection depth (m)',fontsize=16)
+    #plt.ylabel(r'Average vertical velocity within polyna region across z=250m (m/s)',fontsize=16)
+
+    #plt.xlabel(r'$g^\prime_{\text{disconnected}}s_{\text{ice}} H_{\text{ent}} (\text{Tf}_{\text{z=0}} - \text{Tf}_{\text{z=gl}})$',fontsize=16)
+    plt.xlabel(r'$\rho_{\text{polyna}}$ - 1000 (kg/m^3)',fontsize=16)
+    plt.ylabel(r'Diagnosed polyna density - 1000 (kg/m^3)',fontsize=16)
     plt.gca().tick_params(axis='both', which='major', labelsize=12)
-    plt.axhline(y=0)
+    #plt.axhline(y=0)
+    #plt.axvline(x=-250)
     plt.legend()
 
 def folderMapMoreGeneric(func,runsdict):
