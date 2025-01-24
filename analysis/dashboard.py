@@ -14,8 +14,8 @@ runsdict = {\
                 "morediagsenhancedgprime16":{"specialstring":['s-20sf10','s-20sf10','s20sf10','s40sf10'], "marker":["$g'$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                 }
 
-utils.generateRunsTable(runsdict)
-exit()
+#utils.generateRunsTable(runsdict)
+#exit()
 #fastExplosionCheck(runsdict)
 
 #graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf1bump20points/results","Reference",quant="SALT",dim="meridional",selval=150*1000,fixcb=True)
@@ -32,10 +32,11 @@ exit()
 #graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf10bump-20points/results/","sf10bump-20points")
 #folderMap(runsdict)
 #plt.show()
-#analysis.massBoxes("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results")
-#folderMapTimeSeries(runsdict,"")
-graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
+analysis.saltBoxes("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/results")
 plt.show()
+#folderMapTimeSeries(runsdict,"")
+#graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
+#plt.show()
 #plt.show()
 #plt.show()
 #

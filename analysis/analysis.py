@@ -604,16 +604,13 @@ def massBoxes(fname,ds=None,show=False):
     west_polyna_x = np.argmin(np.abs(ds.XC.values-(xwest)))
 
     topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-250))
+    top_polyna_face = top_salt_transport[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x]
+
     north_polyna_face = merid_salt_transport[:,topface_i:,infront_polyna_y,west_polyna_x:east_polyna_x]
     south_polyna_face = merid_salt_transport[:,topface_i:,back_polyna_y,west_polyna_x:east_polyna_x]
-    #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,west_polyna_x-1]
-    #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,east_polyna_x]
-    #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,west_polyna_x]
-    #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,east_polyna_x]
     west_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,west_polyna_x]
     east_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,east_polyna_x]
 
-    top_polyna_face = top_salt_transport[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x]
  
     dx = np.gradient(ds.XG)[0]
     dy = np.gradient(ds.YG)[0]
@@ -678,7 +675,7 @@ def saltBoxes(fname):
     times=getIterNums(fname)
 
     extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
-    ds = open_mdsdataset(fname,prefix=["UVEL","VVEL","THETA","SALT","momKE","SHIfwFlx","VVELSLT","UVELSLT","WVEL","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
+    ds = open_mdsdataset(fname,prefix=["UVEL","VVEL","THETA","SALT","momKE","SHIfwFlx","VVELSLT","UVELSLT","WVEL","WVELSLT","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
     times = np.asarray( [0]+list(ds.time.values))*(10**-9)
 
     yice = grabMatVars(fname,("Yicefront"))["Yicefront"][0][0]
@@ -688,46 +685,50 @@ def saltBoxes(fname):
     xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
     saltfluxvals = grabMatVars(fname,("saltfluxvals"))["saltfluxvals"].T
 
-    vvel = ds.VVELSLT.values
-    uvel = ds.UVELSLT.values
+    vvelslt = ds.VVELSLT.values
+    uvelslt = ds.UVELSLT.values
+    wvelslt = ds.WVELSLT.values
 
-    merid_salt_transport = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*1027
-    zonal_salt_transport = ds.dyC.values*(ds.hFacW*ds.drF).values*uvel*1027
+    salt = ds.SALT.values
+
+    vvel = ds.VVEL.values
+    uvel = ds.UVEL.values
+    wvel = ds.WVEL.values
+
+    merid_salt_transport = ds.dxG.values*(ds.hFacS*ds.drF).values*vvelslt*1027
+    zonal_salt_transport = ds.dyC.values*(ds.hFacW*ds.drF).values*uvelslt*1027
+    top_salt_transport = ds.rA.values*wvelslt*1027
+
+    #vbarsbar = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*(salt+np.roll(salt,axis=0)*1027
+    vbarsbar = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*salt*1027
+    ubarsbar = ds.dyC.values*(ds.hFacW*ds.drF).values*uvel*salt*1027
+    wbarsbar = ds.dyC.values*(ds.hFacW*ds.drF).values*wvel*salt*1027
+
     back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)
     infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-1
-
 
     east_polyna_x = np.argmin(np.abs(ds.XC.values-(xeast)))+1
     west_polyna_x = np.argmin(np.abs(ds.XC.values-(xwest)))
 
-    north_polyna_face = merid_salt_transport[:,:,infront_polyna_y,west_polyna_x:east_polyna_x]
-    south_polyna_face = merid_salt_transport[:,:,back_polyna_y,west_polyna_x:east_polyna_x]
-    #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,west_polyna_x-1]
-    #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y-1:infront_polyna_y+2,east_polyna_x]
-    #west_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,west_polyna_x]
-    #east_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y+1,east_polyna_x]
-    west_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y,west_polyna_x]
-    east_polyna_face = zonal_salt_transport[:,:,back_polyna_y:infront_polyna_y,east_polyna_x]
-    #fig, (ax1,ax2,ax3) = plt.subplots(1,3)
-    #h = grabMatVars(fname,("h"))["h"].T
-    #im2d = np.zeros(zonal_salt_transport.shape[2:])
-    #im2d[infront_polyna_y,west_polyna_x:east_polyna_x+2] = 1
-    #im2d[back_polyna_y,west_polyna_x:east_polyna_x+2] = 1
-    #im2d[back_polyna_y:infront_polyna_y+2,west_polyna_x] = 1
-    #im2d[back_polyna_y:infront_polyna_y+2,east_polyna_x] = 1
-    #ax1.imshow(im2d)
-    #ax2.imshow(im2d)
-    #saltfluxvals[saltfluxvals==0] = np.nan
-    #ax2.imshow(saltfluxvals)
-    #ax3.imshow(h)
-    ##im2d[im2d==0] = np.nan
-    #ax3.imshow(im2d)
-    #plt.show()
+    #topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-200))
+    topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-200))
+
+    top_polyna_face = top_salt_transport[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x-1]
+    north_polyna_face = merid_salt_transport[:,topface_i:,infront_polyna_y,west_polyna_x:east_polyna_x]
+    south_polyna_face = merid_salt_transport[:,topface_i:,back_polyna_y,west_polyna_x:east_polyna_x]
+    west_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,west_polyna_x]
+    east_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,east_polyna_x]
+
+    top_polyna_face_barbar = wbarsbar[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x-1]
+    north_polyna_face_barbar = vbarsbar[:,topface_i:,infront_polyna_y,west_polyna_x:east_polyna_x]
+    south_polyna_face_barbar = vbarsbar[:,topface_i:,back_polyna_y,west_polyna_x:east_polyna_x]
+    west_polyna_face_barbar = ubarsbar[:,topface_i:,back_polyna_y:infront_polyna_y,west_polyna_x]
+    east_polyna_face_barbar = ubarsbar[:,topface_i:,back_polyna_y:infront_polyna_y,east_polyna_x]
  
     dx = np.gradient(ds.XG)[0]
     dy = np.gradient(ds.YG)[0]
     total = np.sum(south_polyna_face,axis=(1,2))+np.sum(west_polyna_face,axis=(1,2)) \
-            -np.sum(east_polyna_face,axis=(1,2))-np.sum(north_polyna_face,axis=(1,2))
+            -np.sum(east_polyna_face,axis=(1,2))-np.sum(north_polyna_face,axis=(1,2))-np.sum(top_polyna_face,axis=(1,2))
 
     salt = ds.SALT.values 
     saltinpolyna = []
@@ -750,40 +751,31 @@ def saltBoxes(fname):
     fluxvol = np.cumsum(fluxdivvol)
     fluxvol = fluxvol+saltinpolyna[0]
 
-    #ax1.imshow(north_polyna_face[4])
-    #ax2.imshow(east_polyna_face[4])
-    #ax3.imshow(south_polyna_face[4])
-    #ax4.imshow(west_polyna_face[4])
-    #plt.show()
-    #fig, (ax1,ax2) = plt.subplots(1,2)
-    #timelen = north_polyna_face.shape[0]
-    #ax1.plot(range(timelen),-np.sum(north_polyna_face,axis=(1,2)),label="north")
-    #ax1.plot(range(timelen),-np.sum(east_polyna_face,axis=(1,2)),label="east")
-    #ax1.plot(range(timelen),np.sum(west_polyna_face,axis=(1,2)),label="west")
-    #ax1.plot(range(timelen),np.sum(south_polyna_face,axis=(1,2)),label="south")
-    #ax1.plot(range(timelen),total,label="total")
-    #ax1.axhline(y=polynaflux,color="black",label="Polyna flux")
-    ##plt.show()
-    barlabels = ['north','east','south','west','advective','polynaflux','total']
-    northavg = np.mean(-np.sum(north_polyna_face,axis=(1,2))[10:])/10**8
-    eastavg = np.mean(-np.sum(east_polyna_face,axis=(1,2))[10:])/10**8
-    southavg = np.mean(np.sum(south_polyna_face,axis=(1,2))[10:])/10**8
-    westavg = np.mean(np.sum(west_polyna_face,axis=(1,2))[10:])/10**8
-    totalavg = np.mean(total[5:])/10**8
+    barlabels = ['north','east','south','west','top','advective','polynaflux','total']
+    northavg = np.mean(-np.sum(north_polyna_face,axis=(1,2))[15:])/10**8
+    eastavg = np.mean(-np.sum(east_polyna_face,axis=(1,2))[15:])/10**8
+    southavg = np.mean(np.sum(south_polyna_face,axis=(1,2))[15:])/10**8
+    westavg = np.mean(np.sum(west_polyna_face,axis=(1,2))[15:])/10**8
+    topavg = np.mean(-np.sum(top_polyna_face,axis=(1,2))[15:])/10**8
+    totalavg = np.mean(total[15:])/10**8
     matplotlib.rcParams.update({'font.size': 22})
     fig, (ax1) = plt.subplots(1,1,figsize=(10,12))
     ax1.axhline(y=0,linewidth=1, color='black')
-    avgs = [northavg,eastavg,southavg,westavg,totalavg,polynaflux/10**8,totalavg+polynaflux/10**8]
+    avgs = [northavg,eastavg,southavg,westavg,topavg,totalavg,polynaflux/10**8,totalavg+polynaflux/10**8]
     ax1.bar(barlabels,avgs,width=0.5)
-    ax1.set_ylim(-30,30)
+    #ax1.set_ylim(-30,30)
     ax1.set_ylabel("(g/kg)*kg/s (in 10**8)")
     plt.xticks(rotation=30, ha='right')
+
+
+    barlabels = ['north','east','south','west','top']
+    northavg = np.mean(-np.sum(north_polyna_face-north_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    eastavg = np.mean(-np.sum(east_polyna_face-east_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    southavg = np.mean(np.sum(south_polyna_face-south_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    westavg = np.mean(np.sum(west_polyna_face-west_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    topavg = np.mean(-np.sum(top_polyna_face-top_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    avgs = [northavg,eastavg,southavg,westavg,topavg]
+    ax1.bar(barlabels,avgs,width=0.25,align='center',color="red")
+
     plt.show()
-    #meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
-    #print(meltsaltflux)
-    #ax1.plot(range(timelen),meltsaltflux,color="gray",label="Melt flux")
-    #ax1.legend()
-    #ax2.plot(range(timelen),saltinpolyna)
-    #ax2.plot(range(timelen),fluxvol)
-    #plt.show()
  
