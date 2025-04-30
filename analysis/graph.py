@@ -477,24 +477,22 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
     kes = []
     #ax3.scatter(gprime_ext*np.mean(meltsaltflux[1:]/polynaflux),np.mean(data["offshorefraction"][data["ts"]>starttime][6:]),label=label,c=color)
     #ax3.scatter(np.mean(meltsaltflux[1:]/polynaflux),np.mean(data["offshorefraction"][data["ts"]>starttime][6:]),label=label,c=color)
-    ax3.scatter(np.mean(data["gprime"][data["ts"]>starttime][10:]),np.mean(data["offshorefraction"][data["ts"]>starttime][10:]),label=label,c=color)
-    ax3.set_xlabel("Exterior Stratification * (Melt salt flux - polyna salt flux)")
-    ax3.set_ylabel("Cavity Stratification (m/s^2)")
+    ax3.scatter(np.mean(-meltsaltflux[1:][data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime][starttime:]),label=label,c=color)
+    ax3.set_xlabel("$B_{total}$")
+    ax3.set_ylabel("Fractional streamline connectedness")
 
     ax4.plot(data["ts"][data["ts"]>starttime],data["shiflx"][data["ts"]>starttime],c=color)
 
     ax4.set_xlabel("Time")
     ax4.set_ylabel("Melt Rate m/yr")
 
-    ax5.plot(data["ts"][data["ts"]>starttime],data["polynasaltdiff"][data["ts"]>starttime],c=color)
-    ax5.set_xlabel("Time")
-    ax5.set_ylabel("gprime")
+    #ax5.plot(data["ts"][data["ts"]>starttime],data["polynasaltdiff"][data["ts"]>starttime],c=color)
+    ax5.plot(data["overturning_connect"][data["ts"]>starttime],meltsaltflux[1:][data["ts"]>starttime]-polynaflux,c=color)
+    ax5.set_xlabel("overturning")
+    ax5.set_ylabel("Btotal")
 
     #ax6.plot(data["ts"][data["ts"]>starttime],data["incavity"][data["ts"]>starttime],c=color)
-    print(polynaflux)
-    print(fname)
-    #ax6.plot(data["offshorefraction"][data["ts"]>starttime],meltsaltflux[1:][data["ts"]>starttime]/polynaflux,c=color)
-    ax6.plot(data["ts"][data["ts"]>starttime],data["offshorefraction"][data["ts"]>starttime],c=color)
+    ax6.plot(data["ts"][data["ts"]>starttime],data["overturning_connect"][data["ts"]>starttime],c=color)
     ax6.set_xlabel("Time")
     ax6.set_ylabel("Meltflux/polynaflux")
 
@@ -1266,7 +1264,7 @@ def folderMapGeneric(func,runsdict,save=False):
 
 def folderMapMoreGeneric(func,runsdict):
     for k in runsdict.keys():
-        for f in glob.glob(str("/home/garrett/Projects/MITgcm_ISC/experiments/"+k+"/*"), recursive = True):
+        for f in glob.glob(str("/home/garrett/Projects/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
                 print(f)
                 key=runsdict[k]["specialstring"][l]
@@ -1285,7 +1283,7 @@ def folderMapMoreGeneric(func,runsdict):
 def folderMapRefresh(runsdict,save=False):
     prepath = os.path.abspath(os.getcwd()).replace("analysis","experiments")
     for k in runsdict.keys():
-        for f in glob.glob(str(prepath+"/"+k+"/*"), recursive = True):
+        for f in tqdm(glob.glob(str(prepath+"/"+k+"/*"), recursive = True)):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
                 if key and key == f.rsplit('/', 1)[-1] :
@@ -1523,4 +1521,57 @@ def buildPortfolio(fname,name):
     topMap(fname,shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT-nf.png",fixcb=False)
     topMap(fname,shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS.png")
     topMap(fname,shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS-nf.png",fixcb=False)
+
+def overturning_plot(fname,name):
+
+    times=getIterNums(fname)
+
+    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
+    ds = open_mdsdataset(fname,prefix=["VVEL"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
+    times = np.asarray( [0]+list(ds.time.values))*(10**-9)
+
+    yice = grabMatVars(fname,("Yicefront"))["Yicefront"][0][0]
+    yshelf = grabMatVars(fname,("Yshelfbreak"))["Yshelfbreak"][0][0]
+    ycoast = grabMatVars(fname,("Ycoast"))["Ycoast"][0][0]
+    xeast = grabMatVars(fname,("Xeast"))["Xeast"][0][0]
+    xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
+    saltfluxvals = grabMatVars(fname,("saltfluxvals"))["saltfluxvals"].T
+
+    vvel = ds.VVEL
+
+    transport = (vvel*ds.hFacS*ds.drF*ds.dxG)[10:].mean(dim="time").mean(dim="XC").where(ds.YG<190000)
+    
+
+    transport = transport.cumsum(dim="Z")
+    transport = transport.where(ds.hFacS.mean(dim="XC")>0)
+
+    streamlow = transport.where(transport.YG<yice-10000).min().values
+    streamhigh = transport.where(transport.YG<yice-10000).max().values
+    print(streamlow)
+    
+    transport['YG'] = transport.YG/1000
+    contours = transport.plot.contour(levels=np.linspace(streamlow+100,streamhigh,num = 5 ),colors="gray",alpha=0.75,aspect=1.5,size=8)
+    im = transport.plot.pcolormesh(label="$Stream function (m^2 s^{-1})$",add_colorbar=False)
+    plt.xlim(0,190)
+    plt.ylim(-1000,0)
+    plt.gca().set_xlabel('Distance (km)', fontsize=24)
+    plt.gca().set_ylabel('Depth (m)', fontsize=24)
+    plt.gca().tick_params(axis='both', labelsize=16)
+    cbar = plt.colorbar(im,label="$Stream function (m^2 s^{-1})$")
+    cbar.ax.yaxis.label.set_size(24)
+
+    plt.tight_layout()
+    plt.savefig('/jbod/gdf/MITgcm_CS/pics/overturning'+name+".png",dpi=350)
+
+    # bools = []
+    # for i in range(len(contours.collections)):
+    #     if len(contours.collections[i].get_paths())>0:
+    #         xmax = contours.collections[i].get_paths()[0].vertices[:,0].max()
+    #         xmin = contours.collections[i].get_paths()[0].vertices[:,0].min()
+    #         bools.append((xmax>yice+20000) and (xmin<yice))
+    
+    # bools = np.asarray(bools)
+    # print(bools)
+    # print(np.sum(bools)/len(bools))
+    plt.show()
 

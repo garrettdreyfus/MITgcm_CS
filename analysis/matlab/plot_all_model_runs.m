@@ -1,4 +1,4 @@
-rootdir = '/home/garrett/Projects/MITgcm_ISC/experiments/'
+rootdir = '/jbod/gdf/MITgcm_CS/experiments/'
 foldernames =  GetSubDirsFirstLevelOnly(rootdir)
 for i = 1:numel(foldernames)
     experimentnames =  GetSubDirsFirstLevelOnly([rootdir foldernames{i}]);

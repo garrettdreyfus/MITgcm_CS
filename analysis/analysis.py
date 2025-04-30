@@ -14,6 +14,8 @@ import os
 import gsw
 from sympy import Symbol
 from sympy import solve
+import ipdb
+import contourpy as cpy
 
 ## Get temperature at depth)
 def intTemp(depth,zgl,fname,fixsal=None):
@@ -280,10 +282,10 @@ def FStheory(fname,xval,include_stats=True):
 
                 #return Tcdw*ices*gprime_ext*deltaH/f,-data["shiflx"],stats
 
-                return fulldepthrho0+rhoanom-1000,dens(data["entrancesalt"],data["entrancetheta"],0)-1000,stats
+                #return fulldepthrho0+rhoanom-1000,dens(data["entrancesalt"],data["entrancetheta"],0)-1000,stats
                 #return fulldepthrho0-1000,dens(data["entrancesalt"],data["entrancetheta"],0)-1000,stats
                 #return data["entrancesalt"],data["entrancetheta"],stats
-                #return gprimechapman*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
+                return gprimechapman*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
                 #return rhoanom,-data["shiflx"],stats
                 #return (rhoanom)*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
 
@@ -531,7 +533,7 @@ def timeSeries(fname,refresh=False):
     icesurfacevels = []
     icesurfacesalts = []
     meltapprox=[]
-    offshorefraction = massBoxes(fname,ds=ds)
+    #offshorefraction = massBoxes(fname,ds=ds)
 
     for k in range(THETA.shape[0]):
         icesurfacetemps.append(np.nansum(THETA[k][icem])/np.sum(icem))
@@ -553,7 +555,7 @@ def timeSeries(fname,refresh=False):
         "mxldiff":np.asarray(mxldiff)[nanmask],\
         "entrancesalt":np.asarray(entrancesalt)[nanmask],\
         "entrancetheta":np.asarray(entrancetheta)[nanmask],
-        "offshorefraction":np.asarray(offshorefraction)[nanmask]\
+        "overturning_connect":np.asarray(overturning_summary(ds,yice,ycoast))[nanmask]\
     }
     with open("data/modelTimeSeries/"+slug,"wb") as f:
         pickle.dump(output,f)
@@ -668,7 +670,31 @@ def massBoxes(fname,ds=None,show=False):
         plt.xticks(rotation=30, ha='right')
         plt.show()
     return topavg#/(northavg)
- 
+
+def overturning_summary(ds,yice,ycoast):
+    vvel = ds.VVEL
+    fulltransport = (vvel*ds.hFacS*ds.drF*ds.dxG)
+    connect_frac = []
+    for i in tqdm(range(len(fulltransport))):
+        transport = fulltransport[i].mean(dim="XC").where(ds.YG<175000)
+        transport = transport.cumsum(dim="Z")
+        streamlow = transport.where(transport.YG<yice).min().values
+        streamhigh = transport.where(transport.YG<yice).max().values
+        levels=np.linspace(streamlow,streamhigh)
+        cg = cpy.contour_generator(transport.YG,transport.Z,transport.values)
+        bools = []
+        for l in levels:
+            if abs(l)>3:
+                for seg in cg.lines(l):
+                    xmax = seg[:,0].max()
+                    xmin = seg[:,0].min()
+                    bools.append((xmax>yice+10000) and (xmin<yice))
+        bools = np.asarray(bools)
+        connect_frac.append((np.sum(bools)/len(bools)))
+    print(connect_frac)
+    return connect_frac
+
+
 
 def saltBoxes(fname):
 
@@ -711,7 +737,7 @@ def saltBoxes(fname):
     west_polyna_x = np.argmin(np.abs(ds.XC.values-(xwest)))
 
     #topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-200))
-    topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-200))
+    topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-300))
 
     top_polyna_face = top_salt_transport[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x-1]
     north_polyna_face = merid_salt_transport[:,topface_i:,infront_polyna_y,west_polyna_x:east_polyna_x]
@@ -762,7 +788,7 @@ def saltBoxes(fname):
     fig, (ax1) = plt.subplots(1,1,figsize=(10,12))
     ax1.axhline(y=0,linewidth=1, color='black')
     avgs = [northavg,eastavg,southavg,westavg,topavg,totalavg,polynaflux/10**8,totalavg+polynaflux/10**8]
-    ax1.bar(barlabels,avgs,width=0.5)
+    ax1.bar(barlabels,avgs,width=0.5,label="$\overline{uv}$")
     #ax1.set_ylim(-30,30)
     ax1.set_ylabel("(g/kg)*kg/s (in 10**8)")
     plt.xticks(rotation=30, ha='right')
@@ -775,7 +801,8 @@ def saltBoxes(fname):
     westavg = np.mean(np.sum(west_polyna_face-west_polyna_face_barbar,axis=(1,2))[10:])/10**8
     topavg = np.mean(-np.sum(top_polyna_face-top_polyna_face_barbar,axis=(1,2))[10:])/10**8
     avgs = [northavg,eastavg,southavg,westavg,topavg]
-    ax1.bar(barlabels,avgs,width=0.25,align='center',color="red")
+    ax1.bar(barlabels,avgs,width=0.25,align='center',color="red",label="$\overline{u'v'}$")
+    plt.legend()
 
     plt.show()
  

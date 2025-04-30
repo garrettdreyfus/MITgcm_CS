@@ -23,7 +23,7 @@ inputpath = fullfile(exppath,'input');
 resultspath = fullfile(exppath,'results');
 
 %%% Path to MITgcm matlab scripts
-addpath ../utils/matlab/
+addpath ../../utils/matlab/
 
 %%% Load parameters used for this experiment
 run(fullfile(inputpath,'params.m'));

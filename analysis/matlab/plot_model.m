@@ -12,9 +12,9 @@ function plot_model(expdir,expname,outputname,boundary)
     %addpath /Users/csi/MITgcm_UC/analysis_uc/colormaps/cmocean/;
     %addpath /Users/csi/Software/eos80_legacy_gamma_n/;
     %addpath /Users/csi/Software/eos80_legacy_gamma_n/library/;
-    addpath /home/garrett/Documents/GSW;
-    addpath /home/garrett/Documents/GSW/library;
-    addpath /home/garrett/Documents/freezecolors;
+    %addpath /home/garrett/Documents/GSW;
+    %addpath /home/garrett/Documents/GSW/library;
+    %addpath /home/garrett/Documents/freezecolors;
     %addpath /Users/csi/Software/gsw_matlab_v3_06_11/library/;
 
     n =1; % Load the reference experiment
@@ -38,6 +38,7 @@ function plot_model(expdir,expname,outputname,boundary)
     boxcolor = [0.85 0.85 0.85];
     % isothermcolor = [87 151 246]/255;
     isothermcolor =  [238 131 70]/255;
+    polynyacolor =  [255 0 0]/255;
     
     %%% Calculate CDW layer properties
 %     prodir = [expdir expname '/'];
@@ -57,7 +58,10 @@ function plot_model(expdir,expname,outputname,boundary)
     h=bathy;
     fid = fopen(fullfile(exppath,'input','SHELFICEtopoFile.bin'),'r','b');
     icedraft = fread(fid,[Nx Ny],'real*8');
-    
+
+    fid = fopen(fullfile(exppath,'input',saltFluxFile),'r','b');
+    saltflux = fread(fid,[Nx Ny],'real*8');
+       
     
 
     %%% Grid
@@ -70,7 +74,8 @@ function plot_model(expdir,expname,outputname,boundary)
         %BC_u = squeeze(uu(idx_1,:,:));
         %BC_u(BC_u==0) = NaN;
         %BC_t = squeeze(tt(end,:,:));
-        BC_s = sEast;
+        BC_s = squeeze(ss(end,:,:));
+        %BC_s = sEast;
     end
 
     %%% Extract zonal boundary values
@@ -115,6 +120,13 @@ function plot_model(expdir,expname,outputname,boundary)
     p.FaceColor = icetopcolor;
     p.EdgeColor = 'none';
     alpha(p,1);
+
+    p = surface(X(:,2:end-1),Y(:,2:end-1),Y(:,2:end-1)*0);
+    p.FaceColor = polynyacolor;
+    p.EdgeColor = 'none';
+    alpha(p,(saltflux(:,2:end-1)~=0)/1.1);
+
+
     if isotherm && boundary
         ttmod = tt;
         ttmod(5,:,:)=NaN;
@@ -128,17 +140,21 @@ function plot_model(expdir,expname,outputname,boundary)
         is.FaceColor = isothermcolor;
         is.EdgeColor = 'none';
         alpha(is,0.5);
-        p_bct = surface(xx(end)/1000*ones(size(YYY)),YYY,-ZZZ,BC_t);
-        colormap(cmocean('thermal'));
+        p_bct = surface(xx(end)/1000*ones(size(YYY)),YYY,-ZZZ,BC_s);
+        colormap(cmocean('haline'));
     %     colormap(cmocean('balance'))
         %colormap(cmocean('diff'))
         alpha(p_bct,1);
         %colormap(colormap(cmocean('balance',ncolor)))
-        caxis([-2 1]);
+
+        smin = min(BC_s(:));
+        smax = max(BC_s(:));
+        smid = (smin+smax)/2;
+        caxis([smin,smax]);
         handle_tt = colorbar(gca);
-        set(handle_tt,'TickLabels', [-2,0,1 ],'Ticks', [-2,0,1 ]);
+        set(handle_tt,'TickLabels', [round(smin,2),round(smid,2),round(smax,2)],'Ticks', [smin,smid,smax]);
         set(handle_tt,'Position',[0.75    0.3    0.0045    0.15]);
-        annotation('textbox',[0.6 0.425 0.15 0.01],'String',{'Restoring';'temperature';['(' char(176) 'C)']},'FontSize',fontsize-1,'LineStyle','None','horizontalAlignment','right');
+        annotation('textbox',[0.6 0.425 0.15 0.01],'String',{'Restoring';'Salinity';['(PSU)']},'FontSize',fontsize-1,'LineStyle','None','horizontalAlignment','right');
         p_bct.FaceColor = 'texturemap';
         p_bct.EdgeColor = 'none';         
     end
