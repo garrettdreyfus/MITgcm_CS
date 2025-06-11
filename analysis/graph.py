@@ -20,6 +20,9 @@ from tqdm import tqdm
 from scipy.stats import pearsonr
 import cmocean
 import os
+from matplotlib.transforms import Affine2D
+import pdb
+
 
 
 def barotropic_streamfunction_max(fname,times=np.array([]),res=1):
@@ -241,6 +244,22 @@ def gprimeWidth(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     plt.ylabel(r'$g^{\prime}_{in} (m/s^2)$',fontsize=18)
     return gprime_ext
 
+def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o"):
+    data = timeSeries(fname)
+    variables = grabMatVars(fname,("Xeast","Xwest","Yicefront","saltfluxvals"))
+    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
+    times=getIterNums(fname)
+    ds = open_mdsdataset(fname,ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
+    dx = np.gradient(ds.XG)[0]
+    dy = np.gradient(ds.YG)[0] 
+    saltfluxvals = np.asarray(variables["saltfluxvals"])
+    meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+    polynaflux = np.sum(saltfluxvals*dx*dy)
+    starttime=7
+    ax1.scatter(np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime]),marker=marker,c=color,label=title,s=100)
+
+    return 0
+
 def gprimeAll(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     data = timeSeries(fname)
     for k in data.keys():
@@ -388,12 +407,14 @@ def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o"
     if xval == None:
         xval,shiflx,stats = FStheory(fname,xval)
         if ~np.isnan(xval):
-                ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=100)
+                ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=125)
         return xval
 
     data = timeSeries(fname)
-    shiflx = -np.nanmean(data["shiflx"])
-    ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=100)
+    print("XVAL SUPPLIED")
+    print(data["ts"])
+    shiflx = -np.nanmean(data["shiflx"][data["ts"]>7])
+    ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=125)
     return xval
 
 def steadyStateHT(fname,xval,fig,ax1,title="",color="blue",marker="o"):
@@ -1155,7 +1176,7 @@ def surfaceAnim(fname,description,times=np.array([]),quant="SALT"):
 
 
 
-def folderMap(runsdict,save=False):
+def folderMap(runsdict,savepath=False):
     fig,axises = plt.subplots(1,1,figsize=(8,7))
     xs,ys,eyeds = [],[],{}
     stats = {"deltaH":[],"Tcdw":[],"gprime":[],"ices":[]}
@@ -1190,7 +1211,7 @@ def folderMap(runsdict,save=False):
         print(k,np.nanmean(stats[k]),np.nanstd(stats[k]))
     print(xs,ys)
     xs = np.asarray(([xs])).reshape((-1, 1))
-    model = LinearRegression(fit_intercept=True).fit(xs, ys)
+    model = LinearRegression(fit_intercept=False).fit(xs, ys)
     rho0 = 1025
     rhoi = 910
     Cp = 4186
@@ -1211,27 +1232,27 @@ def folderMap(runsdict,save=False):
     plt.gca().set_ylabel(r'$\dot{m}_{\mathrm{obs}} (m/yr)$',fontsize=24)
 
 
-    #plt.plot(range(0,5),range(0,5),linestyle="dashed")
-    #plt.xlim(0,3)
-    #plt.ylim(0,3)
+    plt.plot([0.2,1.4],[0.2,1.4],linestyle="dashed")
+    plt.xlim(0,1.4)
+    plt.ylim(0.2,1.4)
     for k in runsdict.keys():
         for f in glob.glob(str("../experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
                 if key and key in f:
                     if f+str(l) in eyeds.keys():
-                        steadyStateAverageSimple(f+"/results",xs[eyeds[f+str(l)]]*(60*60*24*365),fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
+                        steadyStateAverageSimple(f+"/results",xs[eyeds[f+str(l)]],fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
                 elif not key:
                     try:
                         if f+str(l) in eyeds.keys():
-                            steadyStateAverageSimple(f+"/results",xs[eyeds[f+str(l)]]*(60*60*24*365),fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
+                            steadyStateAverageSimple(f+"/results",xs[eyeds[f+str(l)]],fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
                     except:
                         print("yeesh")
-            if save:
-                plt.savefig("/home/garrett/Projects/HUB/paperfigures/"+k+".png")
+            if savepath:
+                plt.savefig(savepath)
     plt.legend()
 
-def folderMapGeneric(func,runsdict,save=False):
+def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel=""):
     fig,axises = plt.subplots(1,1,figsize=(8,7))
     for k in runsdict.keys():
         for f in glob.glob(str("/jbod/gdf/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
@@ -1239,28 +1260,29 @@ def folderMapGeneric(func,runsdict,save=False):
                 key=runsdict[k]["specialstring"][l]
                 if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
                     #try:
-                    func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
+                    func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key)
                     #except:
                         #print("yeesh")
                 elif not key and False:
                     #try:
-                    func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
+                    func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key)
                     #except:
                         #print("yeesh")
 
-            if save:
-                plt.savefig("/home/garrett/Projects/HUB/paperfigures/"+k+".png")        
+            if savepath:
+                plt.savefig(savepath)        
 
     #plt.xlabel(r'Chapman (1998) deep convection depth (m)',fontsize=16)
     #plt.ylabel(r'Average vertical velocity within polyna region across z=250m (m/s)',fontsize=16)
 
     #plt.xlabel(r'$g^\prime_{\text{disconnected}}s_{\text{ice}} H_{\text{ent}} (\text{Tf}_{\text{z=0}} - \text{Tf}_{\text{z=gl}})$',fontsize=16)
-    plt.xlabel(r'$\rho_{\text{polyna}}$ - 1000 (kg/m^3)',fontsize=16)
-    plt.ylabel(r'Diagnosed polyna density - 1000 (kg/m^3)',fontsize=16)
+    plt.xlabel(xlabel,fontsize=24)
+    plt.ylabel(ylabel,fontsize=24)
     plt.gca().tick_params(axis='both', which='major', labelsize=12)
     #plt.axhline(y=0)
     #plt.axvline(x=-250)
     plt.legend()
+    plt.savefig('/jbod/gdf/MITgcm_CS/pics/{}.svg'.format(ylabel))
 
 def folderMapMoreGeneric(func,runsdict):
     for k in runsdict.keys():
@@ -1539,26 +1561,34 @@ def overturning_plot(fname,name):
 
     vvel = ds.VVEL
 
-    transport = (vvel*ds.hFacS*ds.drF*ds.dxG)[10:].mean(dim="time").mean(dim="XC").where(ds.YG<190000)
+    transport = (vvel*ds.hFacS*ds.drF*ds.dxG)[10:].mean(dim="time").sum(dim="XC").where(ds.YG<190000)
     
 
     transport = transport.cumsum(dim="Z")
-    transport = transport.where(ds.hFacS.mean(dim="XC")>0)
+    transport = transport.where(ds.hFacS.sum(dim="XC")>0)
 
-    streamlow = transport.where(transport.YG<yice-10000).min().values
-    streamhigh = transport.where(transport.YG<yice-10000).max().values
+    streamlow = transport.where(np.abs(transport.YG-(yice+15000))<6000).min().values
+    streamhigh = transport.where(np.abs(transport.YG-(yice+15000))<6000).max().values
     print(streamlow)
     
     transport['YG'] = transport.YG/1000
-    contours = transport.plot.contour(levels=np.linspace(streamlow+100,streamhigh,num = 5 ),colors="gray",alpha=0.75,aspect=1.5,size=8)
-    im = transport.plot.pcolormesh(label="$Stream function (m^2 s^{-1})$",add_colorbar=False)
+    contours = transport.plot.contour(levels=np.linspace(streamlow+100,streamhigh-100,num = 10 ),colors="gray",alpha=1,aspect=1.5,size=8)
+    im = transport.plot.pcolormesh(label="$Stream function (m^2 s^{-1})$",add_colorbar=False,cmap="cmo.balance")
+    start_xs = range((yice+15000)-6000,(yice+15000)-6000,10)
+    start_ys = range(-590,0,10)
+    start_X,start_Y = np.meshgrid(start_xs,start_ys)
+    start_points = np.vstack([start_X.ravel(), start_Y.ravel()])
+    X,Y = np.meshgrid(transport.YG,np.abs(transport.Z))
+    # pdb.set_trace()
+    # plt.gca().streamplot(X,Y,-np.diff(transport.values,axis=1)/np.diff(Y),-np.diff(transport.values,axis=0,prepend=0)/np.diff(X,prepend=0),start_points=start_points)
     plt.xlim(0,190)
     plt.ylim(-1000,0)
     plt.gca().set_xlabel('Distance (km)', fontsize=24)
-    plt.gca().set_ylabel('Depth (m)', fontsize=24)
+    plt.gca().set_ylabel('Elevation(m)', fontsize=24)
     plt.gca().tick_params(axis='both', labelsize=16)
-    cbar = plt.colorbar(im,label="$Stream function (m^2 s^{-1})$")
+    cbar = plt.colorbar(im,label="$Stream function (m^3 s^{-1})$")
     cbar.ax.yaxis.label.set_size(24)
+    cbar.ax.tick_params(axis='both', labelsize=16)
 
     plt.tight_layout()
     plt.savefig('/jbod/gdf/MITgcm_CS/pics/overturning'+name+".png",dpi=350)

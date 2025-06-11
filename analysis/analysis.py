@@ -80,8 +80,6 @@ def slope(fname,method="param"):
         m1=np.abs(m1)
         m2=np.abs(m2)
         return np.sqrt(m1**2+m2**2)
-
-
     if method == "param":
         variables = grabMatVars(fname,('Zcdw_pt_shelf','icedraft','tEast','zz','yy',"xx","Yicefront","Hicefront","Y"))
         Y = np.asarray(variables["Y"])
@@ -218,16 +216,16 @@ def FStheory(fname,xval,include_stats=True):
         localdens=localdens_i
         insitudens=insitudens_i
         #N = np.mean(np.sqrt(-(9.8/1027)*np.diff(insitudens)/np.diff(zz))[zz[:-1]>(-1000)])
-        N = np.mean(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
+        N = np.max(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
 
         rho_1i = np.logical_and(zz>-250,zz<0)
         rho_2i = np.logical_and(zz<-250,zz>-260)
         ce = 0.016
         alpha = 0.044
-        rho0 = 1025
+        rho0 = 1027
 
         B0 = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-        P = shelf_width+2*10000
+        P = shelf_width#+2*10000
         A = (shelf_width*10000)
 	
         #rhoanom_old = ((1/ce)**0.5) * ((np.nanmean(localdens[rho_1i]))/(9.8*tcline_height))*np.sign(B0)*np.abs(f*shelf_width*B0/P)**0.5
@@ -236,6 +234,7 @@ def FStheory(fname,xval,include_stats=True):
         #he = (3/(2*0.025))**(1/3)*(1/(N))*(np.abs(B0)/(shelf_width))**(1/3)*np.sign(B0)
         he = 3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*(1/N)*np.sign(B0)
 	
+        bfinal = (3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*N*np.sign(B0))/(-9.8)*rho0
         
         #return he,data["mxldepth"],stats
         #return (np.nanmean(localdens[rho_1i])+rhoanom)-np.nanmean(localdens[rho_2i]) , data['offshorefraction'],stats
@@ -253,7 +252,7 @@ def FStheory(fname,xval,include_stats=True):
         #return shelf_width, np.abs(np.nanmean(localdens[rho_2i])-np.nanmean(localdens[rho_1i])) - rhoanom , stats
 
         #if np.abs(np.nanmean(localdens[rho_2i])-np.nanmean(localdens[rho_1i])) - rhoanom  < 0.0:
-        if B0 > 0.0:
+        if data['overturning_connect']>0.015 and False :
                 print("WARM")
                 #return Tcdw*ices*gprime_ext*deltaH/f,-data["shiflx"],stats
                 Tf = fpAtGl(zgl,np.nanmean(data["salt"]))
@@ -263,22 +262,26 @@ def FStheory(fname,xval,include_stats=True):
                 #return ((1/ce)**0.5)*(hShelf+200)*(B0*P/(f*shelf_width)), data['offshorefraction']*10**8,stats
                 fulldepthrho0 = np.mean(localdens[np.abs(zz)<hShelf+200])
                 B0 = (np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+                return bfinal + np.mean(localdens[np.abs(np.abs(zz)-0)<hShelf+200]) - np.mean(localdens[np.abs(np.abs(zz)-(hShelf+200))<100]),data['overturning_connect'], stats
+                # return bfinal + np.mean(localdens[np.abs(np.abs(zz)-0)<hShelf]),dens(data["entrancesalt"],-1.8,0), stats
 
         	
                 #rhoanom = ((1/ce)**0.5) * ((fulldepthrho0)/(9.8*hShelf))*np.sign(B0)*np.abs(f*B0*shelf_width/P)**0.5
                 #rhoanom = ((1/ce)**(2/3))*((fulldepthrho0)/(9.8*abs(tcline_height)))*np.sign(B0)*(10000*np.abs(B0)/(shelf_width*10000))**(2/3)
                 print(B0,hShelf)#np.mean(polynaflux)/rho0*9.8*(7.8*10**(-4))
                 #rhoanom = ((1/(alpha/2))**(2/3))*((rho0))/(9.8*(hShelf+200))*-np.sign(B0)*(np.abs(B0)/(shelf_width))**(2/3)
-                rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(B0)/A)*(2*A/P))**(2/3)*-np.sign(B0)
+                rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(B0)/A)*(2*A/P))**(2/3)
 
                 Tf = fpAtGl(zgl,34.65)
                 plumerho = dens(34.10,-2.2,0)
 
                 Tcdw = intTemp(hub,zgl,fname,fixsal=data["entrancesalt"])
 
+                #gprimechapman = 9.8*(-plumerho+fulldepthrho0+rhoanom)/rho0
                 gprimechapman = 9.8*(-plumerho+fulldepthrho0+rhoanom)/rho0
+                return fulldepthrho0+rhoanom,dens(data["entrancesalt"],-1.8,0),stats
 
-                #return gprimechapman,-data["shiflx"],stats
+                #return gprimechapman,-data["gprime"],stats
 
                 #return Tcdw*ices*gprime_ext*deltaH/f,-data["shiflx"],stats
 
@@ -296,14 +299,20 @@ def FStheory(fname,xval,include_stats=True):
 
                 x = Symbol('x')
 
-                B0 = (-x*area*34.5+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-                rhoanom = ((1/alpha/2)**(2/3))*((rho0))/(9.8*(hShelf+200))*((B0)/(shelf_width))**(2/3)
+                B0 = -(-x*area*34.5+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+                #rhoanom = ((1/alpha/2)**(2/3))*((rho0))/(9.8*(hShelf+200))*((B0)/(shelf_width))**(2/3)
+                rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((B0/A)*(2*A/P))**(2/3)
                 gprimechapman = 9.8*(-plumerho+fulldepthrho0+rhoanom)/rho0
-
                 output = solve(x-0.5*gprimechapman*(-1.9-Tf)*hShelf*ices/f,x)
                 print(output)
+
+                B0 = -(-float(output[0])*area*34.5+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+                rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((B0/A)*(2*A/P))**(2/3)
+                #return fulldepthrho0+rhoanom,dens(data["entrancesalt"],-1.8,0),stats
                 return float(output[0]),-data["shiflx"],stats
+
                 print("HEREHERE")
+
                 #return hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
 
         #return ices,-data["shiflx"]/(60*60*24*365),stats
@@ -678,9 +687,9 @@ def overturning_summary(ds,yice,ycoast):
     for i in tqdm(range(len(fulltransport))):
         transport = fulltransport[i].mean(dim="XC").where(ds.YG<175000)
         transport = transport.cumsum(dim="Z")
-        streamlow = transport.where(transport.YG<yice).min().values
-        streamhigh = transport.where(transport.YG<yice).max().values
-        levels=np.linspace(streamlow,streamhigh)
+        streamlow = transport.where(np.abs(transport.YG-(yice+15000))<6000).min().values
+        streamhigh = transport.where(np.abs(transport.YG-(yice+15000))<6000).max().values
+        levels=np.linspace(streamlow+100,streamhigh-100)
         cg = cpy.contour_generator(transport.YG,transport.Z,transport.values)
         bools = []
         for l in levels:
@@ -688,7 +697,7 @@ def overturning_summary(ds,yice,ycoast):
                 for seg in cg.lines(l):
                     xmax = seg[:,0].max()
                     xmin = seg[:,0].min()
-                    bools.append((xmax>yice+10000) and (xmin<yice))
+                    bools.append((xmax>yice+21000) and (xmin<yice-15000))
         bools = np.asarray(bools)
         connect_frac.append((np.sum(bools)/len(bools)))
     print(connect_frac)
