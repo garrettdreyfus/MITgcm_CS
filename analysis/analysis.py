@@ -697,8 +697,7 @@ def overturning_summary(ds,yice,ycoast):
                 for seg in cg.lines(l):
                     xmax = seg[:,0].max()
                     xmin = seg[:,0].min()
-                    bools.append((xmax>yice+21000) and (xmin<yice-15000))
-        bools = np.asarray(bools)
+                    bools.append((xmax>yice+21000) and (xmin<yice-25000))
         connect_frac.append((np.sum(bools)/len(bools)))
     print(connect_frac)
     return connect_frac

@@ -19,14 +19,17 @@ runsdict = {\
 #fastExplosionCheck(runsdict)
 
 # THESE FIGURES ARE IN PAPER
-# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results","sf1")
+graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results","sf1")
+graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
+graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/width16/w250sf5/results","w250sf5")
 # graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
+# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/width16/w250sf5/results","sf10")
 
 # graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf150/results","sf150")
 # graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
 #graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/width16/w75sf5/results","s40sf10")
 
-# folderMapRefresh(runsdict)
+folderMapRefresh(runsdict)
 graph.folderMapGeneric(graph.connectionPlot,runsdict,ylabel="Connectedness Fraction",xlabel=r'$B_{\text{total}}$',savepath="/jbod/gdf/MITgcm_CS/pics/connectionvsB0.svg")
 plt.show()
 #folderMapTimeSeries(runsdict,"")

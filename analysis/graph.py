@@ -18,10 +18,11 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from astropy.convolution import convolve, Box2DKernel
 from tqdm import tqdm
 from scipy.stats import pearsonr
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 import cmocean
 import os
 from matplotlib.transforms import Affine2D
-import pdb
+import ipdb
 
 
 
@@ -256,6 +257,7 @@ def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
     polynaflux = np.sum(saltfluxvals*dx*dy)
     starttime=7
+    print(fname,print(data["overturning_connect"][data["ts"]>starttime]))
     ax1.scatter(np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime]),marker=marker,c=color,label=title,s=100)
 
     return 0
@@ -1559,6 +1561,8 @@ def overturning_plot(fname,name):
     xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
     saltfluxvals = grabMatVars(fname,("saltfluxvals"))["saltfluxvals"].T
 
+    ices = slope(fname)
+
     vvel = ds.VVEL
 
     transport = (vvel*ds.hFacS*ds.drF*ds.dxG)[10:].mean(dim="time").sum(dim="XC").where(ds.YG<190000)
@@ -1573,20 +1577,29 @@ def overturning_plot(fname,name):
     
     transport['YG'] = transport.YG/1000
     contours = transport.plot.contour(levels=np.linspace(streamlow+100,streamhigh-100,num = 10 ),colors="gray",alpha=1,aspect=1.5,size=8)
-    im = transport.plot.pcolormesh(label="$Stream function (m^2 s^{-1})$",add_colorbar=False,cmap="cmo.balance")
+    im = (transport/(1e6)).plot.pcolormesh(label="$Stream function (Sv)$",add_colorbar=False,cmap="cmo.balance")
     start_xs = range((yice+15000)-6000,(yice+15000)-6000,10)
     start_ys = range(-590,0,10)
     start_X,start_Y = np.meshgrid(start_xs,start_ys)
     start_points = np.vstack([start_X.ravel(), start_Y.ravel()])
     X,Y = np.meshgrid(transport.YG,np.abs(transport.Z))
+    hfacc = ds.hFacC.sum(axis=2).values
+    mask = ~(hfacc !=0)
+    mask = mask.astype(float)
+    mask[mask==0]=np.nan
+    mask[np.logical_and((-X*ices*1000 + 900)<Y,~np.isnan(mask))] = 2
+    mask[np.logical_and((-X*ices*1000 + 900)>Y,~np.isnan(mask))] = -2
+    cmap = ListedColormap(["#e4f3f8", "#cab590"])
+
+    plt.pcolormesh(transport.YG,transport.Z,mask,cmap=cmap)
     # pdb.set_trace()
     # plt.gca().streamplot(X,Y,-np.diff(transport.values,axis=1)/np.diff(Y),-np.diff(transport.values,axis=0,prepend=0)/np.diff(X,prepend=0),start_points=start_points)
     plt.xlim(0,190)
     plt.ylim(-1000,0)
-    plt.gca().set_xlabel('Distance (km)', fontsize=24)
-    plt.gca().set_ylabel('Elevation(m)', fontsize=24)
+    plt.gca().set_xlabel('y (km)', fontsize=24)
+    plt.gca().set_ylabel('z (m)', fontsize=24)
     plt.gca().tick_params(axis='both', labelsize=16)
-    cbar = plt.colorbar(im,label="$Stream function (m^3 s^{-1})$")
+    cbar = plt.colorbar(im,label="$Stream function (Sv)$")
     cbar.ax.yaxis.label.set_size(24)
     cbar.ax.tick_params(axis='both', labelsize=16)
 
