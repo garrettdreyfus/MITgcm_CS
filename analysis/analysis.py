@@ -2,6 +2,7 @@ from matlabglib import GLIBfromFile
 from sklearn.linear_model import LinearRegression
 import numpy as np
 from jmd95 import dens
+from jmd95_coef import rho_s_t
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 from datainput import *
@@ -181,10 +182,10 @@ def FStheory(fname,xval,include_stats=True):
     gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
 
 
+    Cp = 4186
+    If = 334000
 
     deltaH = -(abs(tcline_height)- abs(hub))
-    if "reference" in fname and "at125" in fname:
-        print(tcline_height)
 
 
     # f is defined in the model setup
@@ -198,6 +199,7 @@ def FStheory(fname,xval,include_stats=True):
     print(stats)
     if not include_stats:
         #return Tcdw*deltaH*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365)
+
         return Tcdw*deltaH*gprime_ext/(f)*ices,-data["shiflx"]/(60*60*24*365)
         #return ices,-data["shiflx"]/(60*60*24*365)
     else:
@@ -212,11 +214,15 @@ def FStheory(fname,xval,include_stats=True):
         zz_i = np.linspace(np.min(zz),np.max(zz),num=200)
         localdens_i = np.interp(zz_i,zz[::-1],localdens[::-1])
         insitudens_i = np.interp(zz_i,zz[::-1],insitudens[::-1])
+        sNorth_i = np.interp(zz_i,zz[::-1],sNorth[::-1])
+        tNorth_i = np.interp(zz_i,zz[::-1],tNorth[::-1])
         zz=zz_i
         localdens=localdens_i
         insitudens=insitudens_i
         #N = np.mean(np.sqrt(-(9.8/1027)*np.diff(insitudens)/np.diff(zz))[zz[:-1]>(-1000)])
-        N = np.max(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
+        #N = np.max(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
+        N = np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz))
+        N = np.mean(N[np.abs(zz[:-1])<np.abs(hub)])
 
         rho_1i = np.logical_and(zz>-250,zz<0)
         rho_2i = np.logical_and(zz<-250,zz>-260)
@@ -225,7 +231,7 @@ def FStheory(fname,xval,include_stats=True):
         rho0 = 1027
 
         B0 = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-        P = shelf_width#+2*10000
+        P = shelf_width+2*10000
         A = (shelf_width*10000)
 	
         #rhoanom_old = ((1/ce)**0.5) * ((np.nanmean(localdens[rho_1i]))/(9.8*tcline_height))*np.sign(B0)*np.abs(f*shelf_width*B0/P)**0.5
@@ -234,7 +240,6 @@ def FStheory(fname,xval,include_stats=True):
         #he = (3/(2*0.025))**(1/3)*(1/(N))*(np.abs(B0)/(shelf_width))**(1/3)*np.sign(B0)
         he = 3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*(1/N)*np.sign(B0)
 	
-        bfinal = (3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*N*np.sign(B0))/(-9.8)*rho0
         
         #return he,data["mxldepth"],stats
         #return (np.nanmean(localdens[rho_1i])+rhoanom)-np.nanmean(localdens[rho_2i]) , data['offshorefraction'],stats
@@ -252,43 +257,105 @@ def FStheory(fname,xval,include_stats=True):
         #return shelf_width, np.abs(np.nanmean(localdens[rho_2i])-np.nanmean(localdens[rho_1i])) - rhoanom , stats
 
         #if np.abs(np.nanmean(localdens[rho_2i])-np.nanmean(localdens[rho_1i])) - rhoanom  < 0.0:
-        if data['overturning_connect']>0.015 and False :
-                print("WARM")
-                #return Tcdw*ices*gprime_ext*deltaH/f,-data["shiflx"],stats
-                Tf = fpAtGl(zgl,np.nanmean(data["salt"]))
+        if data['overturning_connect']>0.015:
+                fulldepthrho0 = np.max(localdens[np.abs(zz)<abs(hub)])
+
+                Socean = np.mean(sNorth_i[np.logical_and(np.abs(zz)<np.abs(hub),np.abs(zz)>abs(tcline_height))])
+                Tocean = np.mean(tNorth_i[np.logical_and(np.abs(zz)<np.abs(hub),np.abs(zz)>abs(tcline_height))])
+                print("Socean, Tocean", (Socean,Tocean))
+
+                # Tf = fpAtGl(zgl,34.5)
+                z_midshelf = (zgl+(abs(zgl)-200))
+                Tf = fpAtGl(zgl,Socean)
+
+                Sm = Socean/(1-(Cp/If)*(Tf-(-1.8)))
+
+                plumerho = dens(Sm,Tf,0)
+
+                Hent = abs(hub)-200
+
+                gprimegade = 9.8*(-plumerho+fulldepthrho0)/rho0
+                Scenter = (Socean + Sm)/2
+                Sdelta = (Socean - Sm)/4
+                Tcenter = (Tocean + Tf)/2
+                Tdelta = (Tocean - Tf)/4
+
+                gprimegade = 9.8*(dens(Scenter+Sdelta,Tcenter+Tdelta,z_midshelf)-dens(Scenter-Sdelta,Tcenter-Tdelta,z_midshelf))/rho0
+
+
+                Smid = Sm + (Socean-Sm)*((0)/Hent)
+                Tmid = Tf + (Tocean-Tf)*((0)/Hent)
+
+                gprimegade = 9.8*(dens((Smid+Socean)/2,(Tmid+Tocean)/2,z_midshelf)-dens((Smid+Sm)/2,(Tmid+Tf)/2,z_midshelf))/rho0
+
+                #return ices*gprimegade*deltaH/f*(Tocean-Tf),-data["shiflx"],stats
                 return np.nan,np.nan,stats
+                return gprimegade*(Tocean-Tf)*ices*deltaH/f,-data["shiflx"],stats
         else:
+            
                 #return Tcdw*ices*gprime_ext*deltaH/f, -data["shiflx"], stats
                 #return ((1/ce)**0.5)*(hShelf+200)*(B0*P/(f*shelf_width)), data['offshorefraction']*10**8,stats
-                fulldepthrho0 = np.mean(localdens[np.abs(zz)<hShelf+200])
-                B0 = (np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-                return bfinal + np.mean(localdens[np.abs(np.abs(zz)-0)<hShelf+200]) - np.mean(localdens[np.abs(np.abs(zz)-(hShelf+200))<100]),data['overturning_connect'], stats
-                # return bfinal + np.mean(localdens[np.abs(np.abs(zz)-0)<hShelf]),dens(data["entrancesalt"],-1.8,0), stats
+                fulldepthrho0 = np.mean(localdens[np.abs(zz)<abs(hub)])
+                # B0 = (np.mean(polynaflux))/fulldepthrho0*9.8*(7.8*10**(-4))
+                B0 = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+                rhoanomfinal = (3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*N*np.sign(B0))/(-9.8)*fulldepthrho0
+                # rho_polynya = (3.9**2)*(1/(hShelf+200))*(np.abs(B0)/A * (2*A/P))**(2/3)*np.sign(B0)
 
+                # rhoanom = ((1/ce)**0.5) * ((fulldepthrho0)/(9.8*(abs(hub))))*np.sign(B0)*np.abs(f*B0*10000*10000shelf_width/P)**0.5
+                # return bfinal + np.mean(localdens[np.abs(np.abs(zz)-0)<hShelf+200]) - np.mean(localdens[np.abs(np.abs(zz)-(hShelf+200))<100]),data['overturning_connect'], stats
+                polynarho = rhoanomfinal + np.mean(localdens[np.abs(zz)<abs(hub)]) 
+                deeprho = np.mean(localdens[np.abs(zz)-np.abs(hub)<100]) 
+                ### REALLY NICE CONNECTIVYT PLOT
+                # return polynarho - deeprho, data['overturning_connect'],stats
         	
                 #rhoanom = ((1/ce)**0.5) * ((fulldepthrho0)/(9.8*hShelf))*np.sign(B0)*np.abs(f*B0*shelf_width/P)**0.5
                 #rhoanom = ((1/ce)**(2/3))*((fulldepthrho0)/(9.8*abs(tcline_height)))*np.sign(B0)*(10000*np.abs(B0)/(shelf_width*10000))**(2/3)
-                print(B0,hShelf)#np.mean(polynaflux)/rho0*9.8*(7.8*10**(-4))
                 #rhoanom = ((1/(alpha/2))**(2/3))*((rho0))/(9.8*(hShelf+200))*-np.sign(B0)*(np.abs(B0)/(shelf_width))**(2/3)
                 rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(B0)/A)*(2*A/P))**(2/3)
 
-                Tf = fpAtGl(zgl,34.65)
-                plumerho = dens(34.10,-2.2,0)
+                Tf = fpAtGl(zgl,34.5)
+                # plumerho = dens(34.10,-2.2,0)
 
-                Tcdw = intTemp(hub,zgl,fname,fixsal=data["entrancesalt"])
 
-                #gprimechapman = 9.8*(-plumerho+fulldepthrho0+rhoanom)/rho0
-                gprimechapman = 9.8*(-plumerho+fulldepthrho0+rhoanom)/rho0
-                return fulldepthrho0+rhoanom,dens(data["entrancesalt"],-1.8,0),stats
+                Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(hub)])
 
-                #return gprimechapman,-data["gprime"],stats
+                Spolyna = Socean + rhoanom/rho_s_t(Socean,-1.9,zgl)[0]
+                Tpolyna = -1.9
 
-                #return Tcdw*ices*gprime_ext*deltaH/f,-data["shiflx"],stats
+                z_midshelf = (zgl+(abs(zgl)-200))
+                Tf = fpAtGl(zgl,Spolyna)
 
-                #return fulldepthrho0+rhoanom-1000,dens(data["entrancesalt"],data["entrancetheta"],0)-1000,stats
-                #return fulldepthrho0-1000,dens(data["entrancesalt"],data["entrancetheta"],0)-1000,stats
-                #return data["entrancesalt"],data["entrancetheta"],stats
-                return gprimechapman*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
+                Sm = Spolyna/(1-(Cp/If)*(Tf-(Tpolyna)))
+
+
+                plumerho = dens(Sm,Tf,0)
+
+                gprimechapman = 9.8*(dens(Spolyna,Tpolyna,0)-plumerho)/rho0
+
+                Scenter = (Spolyna + Sm)/2
+                Sdelta = (Spolyna - Sm)/4
+                Tcenter = (Tpolyna + Tf)/2
+                Tdelta = (Tpolyna - Tf)/4
+
+                gprimegade = 9.8*(dens(Scenter+Sdelta,Tcenter+Tdelta,z_midshelf)-dens(Scenter-Sdelta,Tcenter-Tdelta,z_midshelf))/rho0
+
+                Hent = abs(hub)-200
+                Smid = Sm + (Spolyna-Sm)*(0/Hent)
+                Tmid = Tf + (Tpolyna-Tf)*(0/Hent)
+
+                gprimegade = 9.8*(dens((Smid+Spolyna)/2,(Tmid+Tpolyna)/2,z_midshelf)-dens((Smid+Sm)/2,(Tmid+Tf)/2,z_midshelf))/rho0
+
+
+                print(gprimechapman)
+                print(fname)
+                print("melt: ",Sm,Tf)
+                print("entrance: ",Spolyna,Tpolyna)
+
+                beta,alpha = rho_s_t(Socean,-1.9,zgl)
+                
+                mag = np.sqrt((Sm-Spolyna)**2 + (Tf-Tpolyna)**2)
+                # return Spolyna,data["entrancesalt"],stats
+                return gprimegade*(abs(hub)-200)*ices*(Tpolyna-Tf)/f,-data["shiflx"],stats
                 #return rhoanom,-data["shiflx"],stats
                 #return (rhoanom)*hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
 
@@ -814,3 +881,166 @@ def saltBoxes(fname):
 
     plt.show()
  
+
+def letGgoCrazy(fname,xval,include_stats=True):
+
+    #pull in timeseries data for returning the diagnosed meltrate 
+    data = timeSeries(fname)
+
+    #Calculate HUB from model setup file
+    hub = GLIBfromFile(matVarsFile(fname))
+
+    #We care about the mean of the model output
+    for k in data.keys():
+        if k != "ts":
+            try:
+                data[k] = np.nanmean(data[k][data["ts"]>7])
+            except:
+                data[k]=np.nan
+
+    ##Pull in relevant geometric parameters and hydrographic forcings
+    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","Zcdw_pt_shelf","tEast","sEast","icedraft","zz","h","yy","xx","saltfluxvals"))
+
+    icedraft = np.asarray(variables["icedraft"])
+    h = np.asarray(variables["h"])
+    hShelf = float(abs(np.asarray(variables["Hshelf"])[0][0])-abs(200))
+    #
+    ##Temperature and salinity at the northern boundary
+    tNorth = np.asarray(variables["tEast"])[-1,:]
+    sNorth = np.asarray(variables["sEast"])[-1,:]
+
+    ## crude but accurate way to calculate the grounding line depth
+    zgl = np.nanmin(icedraft)
+
+
+    shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
+
+    ## Grab temperature at HUB depth
+    Tcdw = intTemp(hub,zgl,fname)
+    #Tcdw = (data["tcdw"]+2)
+
+    ## ice shelf slope
+    ices = slope(fname)
+    vol,thick, area = volume(fname)
+    #density using model density function
+    ds = open_mdsdataset(fname,prefix=["SHIfwFlx"])
+
+    dx = np.gradient(ds.XG)[0]
+    dy = np.gradient(ds.YG)[0] 
+
+    saltfluxvals = np.asarray(variables["saltfluxvals"])
+
+    yice = np.asarray(variables["Yicefront"])[0][0]
+
+    meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+    polynaflux = np.sum(saltfluxvals*dx*dy)
+    print("PF",polynaflux)
+
+    zz = np.asarray(variables["zz"])[0]
+
+   
+
+
+    ## calculation of gprime
+    localdens = dens(sNorth,tNorth,abs(zz))
+    ## density gradient
+    gradd = np.abs(np.diff(localdens)/np.diff(zz))
+    #average depth of all above 80th percentile
+    tcline_height=np.mean(zz[:-1][gradd>np.quantile(gradd,0.85)])#+75
+    zpyci = np.argmin(np.abs(np.abs(zz)-abs(tcline_height)))
+    localdens = dens(sNorth,tNorth,abs(zz[zpyci]))
+
+
+    rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
+    rho_2i = np.logical_and(zz<zz[zpyci]+50,zz>zz[zpyci])
+    gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
+
+
+
+    deltaH = -(abs(tcline_height)- abs(hub))
+    if "reference" in fname and "at125" in fname:
+        print(tcline_height)
+
+
+    # f is defined in the model setup
+    f = 1.3*10**-4
+    rho0 = 1025
+    rhoi = 910
+    Cp = 4186
+    If = 334000
+    #gprime_ext = data["gprime"]
+    stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
+    localdens = dens(sNorth,tNorth,0)
+    insitudens = dens(sNorth,tNorth,np.abs(zz))
+    #rho_1i = np.logical_and(zz>zz[zpyci],zz<zz[zpyci]+abs(tcline_height))
+    #rho_2i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-abs(tcline_height))
+    zz_i = np.linspace(np.min(zz),np.max(zz),num=200)
+    localdens_i = np.interp(zz_i,zz[::-1],localdens[::-1])
+    insitudens_i = np.interp(zz_i,zz[::-1],insitudens[::-1])
+    zz=zz_i
+    localdens=localdens_i
+    insitudens=insitudens_i
+    #N = np.mean(np.sqrt(-(9.8/1027)*np.diff(insitudens)/np.diff(zz))[zz[:-1]>(-1000)])
+    #N = np.max(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
+    N = np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz))
+    N = np.mean(N[np.abs(zz[:-1])<np.abs(hub)])
+
+    rho_1i = np.logical_and(zz>-250,zz<0)
+    rho_2i = np.logical_and(zz<-250,zz>-260)
+    ce = 0.016
+    alpha = 0.044
+    rho0 = 1027
+
+    B0 = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+    P = shelf_width+2*10000
+    A = (shelf_width*10000)
+
+    #rhoanom_old = ((1/ce)**0.5) * ((np.nanmean(localdens[rho_1i]))/(9.8*tcline_height))*np.sign(B0)*np.abs(f*shelf_width*B0/P)**0.5
+
+    #rhoanom = ((1/(alpha/2))**(2/3))*((rho0))/(9.8*abs(250))*-np.sign(B0)*(np.abs(B0)/(shelf_width))**(2/3)
+    #he = (3/(2*0.025))**(1/3)*(1/(N))*(np.abs(B0)/(shelf_width))**(1/3)*np.sign(B0)
+    he = 3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*(1/N)*np.sign(B0)
+    fig, (ax1,ax2) = plt.subplots(1,2)
+    for polynaflux in np.linspace(-5e-8*area,0):
+
+        connectedmelt = 0.187*Tcdw*ices*gprime_ext*deltaH/f
+        connectedBtotal = (910*34.5*connectedmelt*area/(60*60*24*365)/(1/920.0)+polynaflux)/rho0*9.8*(7.8*10**(-4))
+        ax1.scatter(polynaflux,connectedmelt,c="red")
+        ax2.scatter(polynaflux,connectedBtotal,c="red")
+        #return Tcdw*ices*gprime_ext*deltaH/f, -data["shiflx"], stats
+        #return ((1/ce)**0.5)*(hShelf+200)*(B0*P/(f*shelf_width)), data['offshorefraction']*10**8,stats
+        fulldepthrho0 = np.mean(localdens[np.abs(zz)<abs(hub)])
+        # B0 = (np.mean(polynaflux))/fulldepthrho0*9.8*(7.8*10**(-4))
+
+        meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+        B0 = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+        rhoanomfinal = (3.9*(np.abs(B0)/A * (2*A/P))**(1/3)*N*np.sign(B0))/(-9.8)*fulldepthrho0
+
+        plumerho = dens(34.10,-2.2,0)
+        polynarho = rhoanomfinal + np.mean(localdens[np.abs(zz)<abs(hub)]) 
+        deeprho = np.mean(localdens[np.abs(zz)-np.abs(hub)<100]) 
+
+        fpAtGl(zgl,34.65)
+        x = Symbol('x')
+
+        B0 = -(34.5*x/(60*60*24*365)/(1/920.0)*area+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+        #rhoanom = ((1/alpha/2)**(2/3))*((rho0))/(9.8*(hShelf+200))*((B0)/(shelf_width))**(2/3)
+        rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((B0/A)*(2*A/P))**(2/3)
+        gprimechapman = 9.8*(-plumerho+fulldepthrho0+rhoanom)/rho0
+        output = solve(x-0.03*gprimechapman*(-1.9-Tf)*hShelf*ices/f,x)
+        print(output)
+
+        B0 = -(34.5*output[0]*area/(60*60*24*365)/(1/920.0)*area*34.5+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+        rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((B0/A)*(2*A/P))**(2/3)
+        ax1.scatter(polynaflux,float(output[0]),c="blue")
+        ax2.scatter(polynaflux,B0,c="blue")
+        #return fulldepthrho0+rhoanom,dens(data["entrancesalt"],-1.8,0),stats
+        # return float(output[0]),-data["shiflx"],stats
+
+        print("HEREHERE")
+
+        #return hShelf*ices*(-1.9-Tf)/f,-data["shiflx"],stats
+    plt.show()
+
+    #return ices,-data["shiflx"]/(60*60*24*365),stats
+

@@ -1465,14 +1465,27 @@ def volumetricTS(fname,description,res=1,show=True,savepath=False):
 
     times=np.asarray(times)
     times = times*grabDeltaT(fname)/60.0/60.0/24.0/365.0
-    timemask = times>1
+    timemask = times>5
     print(times)
     #for k in tqdm(range(0,length,res)):
 
     #ax1.hist2d(salt[-1].flatten()[mask],theta[-1].flatten()[mask],density=True,norm="log")
     print(salt[-1].flatten().shape)
     print(volume.shape)
+
+    ipdb.set_trace()
+    Spolyna = np.max(np.mean(salt[:10],axis=0)[volume>0])
+    Tpolyna = np.max(np.mean(theta[:10],axis=0)[volume>0])
+    from analysis import fpAtGl
+    Tf = fpAtGl(-600,Spolyna)
+
+    Cp = 4186
+    If = 334000
+
+    Sm = Spolyna/(1-(Cp/If)*(Tf-(Tpolyna)))
     im=ax1.hist2d(np.mean(salt[timemask],axis=0).flatten(),np.mean(theta[timemask],axis=0).flatten(),weights=volume.flatten(),density=True,bins=100,cmin=0.001,range=[[34,35],[-2.4,-1.6]],norm="log")
+    print((Sm,Spolyna),(Tf,Tpolyna))
+    ax1.plot((Sm,Spolyna),(Tf,Tpolyna),c="red")
     #plt.colorbar(im[3],ax=ax1)
     #ax1.set_xlim([34.1,34.75])
     #ax1.set_ylim([-2.25,-1.790])
