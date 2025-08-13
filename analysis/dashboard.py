@@ -10,10 +10,17 @@ import matplotlib.pyplot as plt
 runsdict = {\
                   "morediagsenhancedgprime16":{"specialstring":['s-20sf10','s20sf10','s40sf10'], "marker":["$g'$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                   "width16":{"specialstring":['w75sf5','w150sf5','w250sf5','w75sf25','w150sf25','w250sf25'], "marker":["$w$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
-#                 #"icefront16":{"specialstring":['coldersf50front75','coldersf50front100','coldersf50front150'], "marker":["$if$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
-                 "varysf16":{"specialstring":['sf3sd300','sf3sd900','sf3cd150','sf3cd450','sf3cd700','sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                #"icefront16":{"specialstring":['coldersf50front75','coldersf50front100','coldersf50front150'], "marker":["$if$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
+                  "varysf16":{"specialstring":['sf3sd300','sf3sd900','sf3cd150','sf3cd450','sf3cd700','sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                  }
 # runsdict = {\
+#                   "morediagsenhancedgprime16":{"specialstring":['s-20sf10','s20sf10','s40sf10'], "marker":["$g'$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+#                   "width16":{"specialstring":['w75sf5','w150sf5','w250sf5','w75sf10','w150sf10','w250sf10','w75sf25','w150sf25','w250sf25'], "marker":["$w$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
+#                   "icefront16":{"specialstring":['coldersf50front75','coldersf50front100','coldersf50front150'], "marker":["$if$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
+#                   "varysf16":{"specialstring":['sf3sd300','sf3sd900','sf3cd150','sf3cd450','sf3cd700','sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+#                  }
+# 
+#runsdict = {\
                  # "varysf16":{"specialstring":['sf5','sf10','sf50','sf100','sf150'], "marker":["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
 # }
 
@@ -38,9 +45,19 @@ runsdict = {\
 # plt.show()
 #folderMapTimeSeries(runsdict,"")
 
-# graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf3sd900/results","sf3sd900")
+# graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
 #graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf1bump20points/results","Reference",quant="SALT",dim="meridional",selval=150*1000,fixcb=True)
-# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf3sd900/results","Reference",show=True)
+# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","Reference",show=True)
+# graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
+# plt.show()
+
+# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
+# plt.show()
+
+# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
+# plt.show()
+
+# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf100/results","Reference",show=True)
 # plt.show()
 # graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
 # plt.show()
