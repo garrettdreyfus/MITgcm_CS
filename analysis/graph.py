@@ -257,7 +257,6 @@ def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
     polynaflux = np.sum(saltfluxvals*dx*dy)
     starttime=7
-    print(fname,print(data["overturning_connect"][data["ts"]>starttime]))
     ax1.scatter(np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime]),marker=marker,c=color,label=title,s=100)
 
     return 0
@@ -408,8 +407,9 @@ def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o"
     shortname = shortname.split("|")[1]
     if xval == None:
         xval,shiflx,stats = FStheory(fname,xval)
-        if ~np.isnan(xval):
+        if ~np.isnan(np.asarray(xval)).all():
                 ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=125)
+                # ax1.plot(xval,shiflx,c=color,marker=marker,label=shortname)
         return xval
 
     data = timeSeries(fname)
@@ -1188,16 +1188,16 @@ def folderMap(runsdict,savepath=False):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
                 if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
-                    #try:
-                    x,y,newstats=FStheory(f+"/results",None,True)
-                    for j in newstats.keys():
-                        stats[j].append(newstats[j])
-                    if ~np.isnan(y) and ~np.isnan(x):
-                        xs.append(x)
-                        ys.append(y)
-                        eyeds[f+str(l)]=len(xs)-1
-                    #except:
-                        #print("yeesh")
+                    try:
+                        x,y,newstats=FStheory(f+"/results",None,True)
+                        for j in newstats.keys():
+                            stats[j].append(newstats[j])
+                        if ~np.isnan(y) and ~np.isnan(x):
+                            xs.append(x)
+                            ys.append(y)
+                            eyeds[f+str(l)]=len(xs)-1
+                    except:
+                        print("yeesh")
                 elif not key:
                     try:
                         x,y,newstats=FStheory(f+"/results",None,true)
@@ -1219,6 +1219,7 @@ def folderMap(runsdict,savepath=False):
     Cp = 4186
     If = 334000
     C = model.coef_
+    print("model_coef: ",model.coef_)
     #W0 = (rho0*Cp)/(rhoi*If*C)
     W0 =  100000#(rho0*Cp)/(rhoi*If*C)
     alpha =  C/((rho0*Cp)/(rhoi*If*W0))
@@ -1254,15 +1255,25 @@ def folderMap(runsdict,savepath=False):
                 plt.savefig(savepath)
     plt.legend()
 
-def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel=""):
-    fig,axises = plt.subplots(1,1,figsize=(8,7))
+def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "",threed=False):
+    if not threed:
+        fig,axises = plt.subplots(1,1,figsize=(8,7))
+    else:
+        fig = plt.gcf()
+        axises = plt.figure().add_subplot(projection='3d')
+
+    count = 0
     for k in runsdict.keys():
         for f in glob.glob(str("/jbod/gdf/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
                 if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
                     #try:
-                    func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key)
+                    if threed:
+                        func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key,znum=count)
+                    else:
+                        func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key)
+                    count+=1
                     #except:
                         #print("yeesh")
                 elif not key and False:
@@ -1280,6 +1291,8 @@ def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel=""):
     #plt.xlabel(r'$g^\prime_{\text{disconnected}}s_{\text{ice}} H_{\text{ent}} (\text{Tf}_{\text{z=0}} - \text{Tf}_{\text{z=gl}})$',fontsize=16)
     plt.xlabel(xlabel,fontsize=24)
     plt.ylabel(ylabel,fontsize=24)
+    if threed:
+        plt.gca().set_zlabel(zlabel,fontsize=24)
     plt.gca().tick_params(axis='both', which='major', labelsize=12)
     #plt.axhline(y=0)
     #plt.axvline(x=-250)
@@ -1345,7 +1358,7 @@ def meltMapAverage(fname,description,res=1,ax1=None,show=False,savepath=False):
     icedraft = np.logical_and(icedraft!=0,icedraft!=h)
     melt[~icedraft.T]=np.nan
     
-    im = ax1.pcolormesh(xs,ys,melt,cmap=newcmap,vmin=0,vmax=3)
+    im = ax1.pcolormesh(xs,ys,melt,cmap=cmocean.cm.balance,vmin=-5,vmax=5)
 
     bound = np.argwhere(~np.isnan(melt))
 
@@ -1438,6 +1451,13 @@ def TSAnim(fname,description,res=1):
 
 
 def volumetricTS(fname,description,res=1,show=True,savepath=False):
+    data = timeSeries(fname)
+    for k in data.keys():
+        if k != "ts":
+            try:
+                data[k] = np.nanmean(data[k][data["ts"]>2])
+            except:
+                data[k]=np.nan
     extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
     extra_variables = dict( KPPdiffS = dict(dims=["k","j","i"], attrs=dict(standard_name="KPPDIFFS", units="kg/m^3")))
     times=getIterNums(fname)
@@ -1455,9 +1475,17 @@ def volumetricTS(fname,description,res=1,show=True,savepath=False):
     tEast = tEast[int(tEast.shape[0]-1)]
     sEast = sEast[int(sEast.shape[0]-1)]
 
-    ds = ds.where(ds.YC<yice-10000,drop=True)
+    # ds = ds.where(ds.YC<yice-10000,drop=True)
+    ds = ds.where(ds.YC<150000,drop=True)
+    # ds = ds.where(ds.YC>yice-5000,drop=True)
+    # ds = ds.where(ds.XC>150000,drop=True)
+    print((yice-40000)/1000)
     salt = ds.SALT.values
     theta = ds.THETA.values
+    for i in range(salt.shape[0]):
+        salt[i,ds.hFacC.values<0.1] = np.nan
+        theta[i,ds.hFacC.values<0.1] = np.nan
+    Z,Y,X = np.meshgrid(ds.Z.values,ds.YC.values,ds.XC.values,indexing='ij')
     volume = (ds.hFacC * ds.drF * ds.rA).values
     length = salt.shape[0]
     shortname, fpath = outPath(fname) 
@@ -1465,32 +1493,54 @@ def volumetricTS(fname,description,res=1,show=True,savepath=False):
 
     times=np.asarray(times)
     times = times*grabDeltaT(fname)/60.0/60.0/24.0/365.0
-    timemask = times>5
     print(times)
-    #for k in tqdm(range(0,length,res)):
+    timemask = times>8
 
-    #ax1.hist2d(salt[-1].flatten()[mask],theta[-1].flatten()[mask],density=True,norm="log")
-    print(salt[-1].flatten().shape)
-    print(volume.shape)
 
-    Spolyna = np.max(np.mean(salt[:10],axis=0)[volume>0])
-    Tpolyna = np.max(np.mean(theta[:10],axis=0)[volume>0])
+    Spolyna = data["scdw"]#np.max(np.mean(salt[:10],axis=0)[volume>0])
+    Tpolyna = data['tcdw']#np.max(np.mean(theta[:10],axis=0)[volume>0])
     from analysis import fpAtGl
-    Tf = fpAtGl(-600,Spolyna)
-
-    Cp = 4186
+    meltdepth = 0
+    Tf = fpAtGl(meltdepth,Spolyna)
+    import gsw
+    print(gsw.pt_from_t(Spolyna,Tf,meltdepth,0),Tf)
+    ax1.axhline(y=gsw.pt_from_t(Spolyna,Tf,meltdepth,0))
+    Cp = 3390
     If = 334000
 
+    Tf = gsw.pt_from_t(Spolyna,Tf,meltdepth,0)
     Sm = Spolyna/(1-(Cp/If)*(Tf-(Tpolyna)))
-    im=ax1.hist2d(np.mean(salt[timemask],axis=0).flatten(),np.mean(theta[timemask],axis=0).flatten(),weights=volume.flatten(),density=True,bins=100,cmin=0.001,range=[[34,35],[-2.4,-1.6]],norm="log")
-    print((Sm,Spolyna),(Tf,Tpolyna))
-    ax1.plot((Sm,Spolyna),(Tf,Tpolyna),c="red")
 
-    Smid = Sm + (Spolyna-Sm)*(1)
-    Tmid = Tf + (Tpolyna-Tf)*(1)
+    # im=ax1.hist2d(np.mean(salt[timemask],axis=0).flatten(),np.mean(theta[timemask],axis=0).flatten(),weights=volume.flatten(),density=True,bins=100,cmin=0.001,range=[[34,35],[-2.4,-1.6]])#,norm="log")
+    meansalt = np.mean(salt[timemask],axis=0)
+    meantemp = np.mean(theta[timemask],axis=0)
+    tfs = fpAtGl(Z,meansalt)
+    tfs = gsw.pt_from_t(meansalt,tfs,Z,0)
+    #im=ax1.scatter(meansalt,np.mean(theta[timemask],axis=0).flatten(),c=Z.flatten(),vmin=-900,vmax=-200)#,norm="log")
+    im=ax1.scatter(meansalt,np.mean(theta[timemask],axis=0).flatten(),c=Z.flatten(),vmin=-900,vmax=0)#,norm="log")
+    # im=ax1.scatter(meansalt.flatten(),meantemp.flatten(),c=tfs.flatten()-meantemp.flatten()) #,norm="log")
+    plt.colorbar(im,ax=ax1)
+
+    frac = (data['ssurf']-Sm)/(Spolyna-Sm)
+    print(frac)
+
+    Cp = 3390
+    If = 334000
+
+    for meltdepth in range(100,1000,100):
+        Tf = fpAtGl(meltdepth,Spolyna)
+        Tf = gsw.pt_from_t(Spolyna,Tf,meltdepth,0)
+        print(Tf)
+        print((1-(Cp/If)*(Tf-(Tpolyna))))
+        Sm = Spolyna/(1-(Cp/If)*(Tf-(Tpolyna)))
+        Smid = Sm
+        Tmid = Tf
+        ax1.plot((Smid,Spolyna),(Tmid,Tpolyna),c="red")
 
 
-    plt.scatter(((Smid+Spolyna)/2,(Sm+Sm)/2),((Tmid+Tpolyna)/2,(Tf+Tf)/2),c="purple")
+    # plt.scatter(((Smid+Spolyna)/2,(Sm+Sm)/2),((Tmid+Tpolyna)/2,(Tf+Tf)/2),c="purple")
+    print(data["scdw"]-data["ssurf"])
+    plt.scatter((data["ssurf"],data["scdw"]),(data["tsurf"],data['tcdw']),c="red")
     #plt.colorbar(im[3],ax=ax1)
     #ax1.set_xlim([34.1,34.75])
     #ax1.set_ylim([-2.25,-1.790])
