@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import xarray as xr
 import gsw
@@ -1264,7 +1264,7 @@ def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "
 
     count = 0
     for k in runsdict.keys():
-        for f in glob.glob(str("/jbod/gdf/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
+        for f in glob.glob(str("/data/jbod/gdf/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
                 if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
@@ -1297,7 +1297,7 @@ def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "
     #plt.axhline(y=0)
     #plt.axvline(x=-250)
     plt.legend()
-    plt.savefig('/jbod/gdf/MITgcm_CS/pics/{}.svg'.format(ylabel))
+    plt.savefig('out.png')
 
 def folderMapMoreGeneric(func,runsdict):
     for k in runsdict.keys():

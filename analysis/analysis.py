@@ -318,7 +318,7 @@ def twinshadow(fname,xval,fig,ax1,title="",color="blue",marker="o",znum=0):
             disconnectedBtotal = np.nan
 
         connectedmelt =  ices*gprime_ext*deltaH/f*(Tcdw)*0.5
-        meltflux = connectedmelt*(1/(60*60*24*365))*(920.0)
+        meltflux = connectedmelt*(1/(0*60*24*365))*(920.0)
         connectedBtotal = ((-meltflux*area*dx*dy*34.5)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
 
         ax1.scatter(connectedBtotal,znum,data["overturning_connect"],marker=marker+"-",c=color,label=title,s=100)
@@ -435,8 +435,10 @@ def FStheory(fname,xval,include_stats=True):
         insitudens=insitudens_i
         #N = np.mean(np.sqrt(-(9.8/1027)*np.diff(insitudens)/np.diff(zz))[zz[:-1]>(-1000)])
         #N = np.max(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
-        N = np.sqrt(-(9.8/insitudens[:-1])*np.diff(insitudens)/np.diff(zz))
+        N = np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz))
         N = np.mean(N[np.abs(zz[:-1])<np.abs(hub)])
+
+
 
         rho_1i = np.logical_and(zz>-250,zz<0)
         rho_2i = np.logical_and(zz<-250,zz>-260)
@@ -444,9 +446,19 @@ def FStheory(fname,xval,include_stats=True):
         alpha = 0.044
         rho0 = 1027
 
-        B0 = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+        B0 = -(-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
         P = shelf_width+2*10000
         A = (shelf_width*10000)
+
+        Nvis = 3.9*(B0*2/P)**(1/3)*(1/(hShelf+200))
+
+        print(B0)
+
+        # if B0<0:
+            # return np.nan, np.nan, stats
+        # else:
+            # return N , 3.9*(B0*2/P)**(1/3)*(1/(hShelf+200)), stats
+            # return N - 3.9*(B0*2/P)**(1/3)*(1/(hShelf+200)),data['overturning_connect'], stats
 	
         if data['overturning_connect']>0.015:
                 fulldepthrho0 = np.max(localdens[np.abs(zz)<abs(hub)])
@@ -486,9 +498,13 @@ def FStheory(fname,xval,include_stats=True):
                 # B0 = (np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
                 rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
 
+
                 z_midshelf = (zgl+(abs(zgl)-200)/2)
                 # Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(tcline_height)])
                 Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(hShelf)+200])
+
+                # return 1.5*rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0], data['scdw']-data['ssurf'],stats
+
                 z_midshelf = (zgl+(abs(zgl)-200)/2)
 
                 Spolyna = Socean + 1.5*rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0]
@@ -497,8 +513,6 @@ def FStheory(fname,xval,include_stats=True):
                 Tpolyna = data['tcdw']
                 Tpolyna = -1.9
                 # Spolyna,Tpolyna = data['scdw'],data['tcdw']
-                print("midshelf",z_midshelf)
-                print("zgl",zgl)
                 Tf = fpAtGl(200,Spolyna)
 
                 Cp = 3.9943e03
@@ -508,7 +522,6 @@ def FStheory(fname,xval,include_stats=True):
                 # Sm = Spolyna+2.4*(Tf-(Tpolyna))
                 frac = (data['scdw']-data['ssurf'])/(Spolyna-Sm)
                 frac = 0.275
-                print("frac: ",(data['scdw']-data['ssurf'])/(Spolyna-Sm))
                 Smid = Sm + (Spolyna-Sm)*(0.40)
                 Tmid = Tf + (Tpolyna-Tf)*(0.40)
                 # (data['ssurf']) = (data['scdw']/(1-(Cp/If)*(Tf-(Tpolyna))))/coef
@@ -520,7 +533,7 @@ def FStheory(fname,xval,include_stats=True):
                 # return Spolyna,data['scdw'],stats
 
                 # Sp, melt, Vout, w
-                return data['scdw'] - data['ssurf'], (Spolyna-Sm)*(frac),stats
+                # return data['scdw'] - data['ssurf'], (Spolyna-Sm)*(frac),stats
                 # return data['scdw'] - Smid, data['shiflx'],stats
                 # return Spolyna,data['scdw'],stats
 
@@ -548,21 +561,18 @@ def FStheory(fname,xval,include_stats=True):
 
                 rho_1 = dens(data['ssurf'],data['tsurf'],z_midshelf)
                 deltaS = Spolyna - data['ssurf']
+
                 deltarho = deltaS*rho_s_t(Spolyna,Tpolyna,z_midshelf)[0]
                 # gprimegadesurf = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
                 gprimegadesurf = 9.8*(deltarho)/1027
 
                 rho_1 = dens(Spolyna-(Spolyna-Sm)/4,Tpolyna-(Tpolyna-Tf)/4,z_midshelf)
-                print(Spolyna,Tpolyna)
-                print(Spolyna-(Spolyna-Sm)/3,Tpolyna-(Tpolyna-Tf)/3)
-                print(data['ssurf'],data['tsurf'])
                 gprimegade = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
 
                 # return Spolyna,(data['scdw']-data['ssurf'])/(data['tcdw']-data['tsurf']),stats
                 # return (data['scdw'],data['ssurf']),(data['tcdw'],data['tsurf']),stats
                 # return data['scdw']-data['ssurf'],((data['tcdw']-Tf)/30)*2.4,stats
                 # return data['entrancesalt'],Spolyna,stats
-                print(data['tsurf'])
 
                 # return Spolyna-(Spolyna-Sm)/4,data['ssurf'],stats
                 # return data['scdw']-data['ssurf'],data['tcdw']-data['tsurf'],stats
@@ -578,10 +588,36 @@ def FStheory(fname,xval,include_stats=True):
                 gprimegade = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
                 # return gprimegadesurf,data['gprime'],stats
 
-                Tf = fpAtGl(zgl,Spolyna)
+                Tf = fpAtGl(z_midshelf,Spolyna)
                 # print("ssurf",data['ssurf'],"scdw",data['scdw'])
                 # print("tsurf",data['tsurf'],"tcdw",data['tcdw'])
-                return data['gprime']*ices*(Tpolyna-(Tpolyna+Tf)/2)*Hent/f,-data["shiflx"],stats
+
+                #rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
+                Hents = depth[:,frontindex][depth[:,frontindex]>200]
+
+                rhoanoms = (3.9**2)*(1/(Hents))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
+
+                rhomin,rhomax = np.nanquantile(rhoanoms,0.1),np.nanquantile(rhoanoms,0.9)
+
+                stratterm = rhomax-rhomin
+
+                Spolyna = Socean + 1*rhomin/(rho_s_t(Spolyna,Tpolyna,z_midshelf)[0])
+
+                D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
+
+                gprime = Spolyna*(1-1/D)*rho_s_t(Spolyna,Tpolyna,z_midshelf)[0] + (stratterm/6)
+
+                # return data['gprime'],9.8*(gprime)/1027,stats
+
+                rho0 = 1025
+                rhoi = 910
+                Cp = 4186
+                If = 334000
+                C = 1
+                W0 =  100000#(rho0*Cp)/(rhoi*If*C)
+                alpha =  C/((rho0*Cp)/(rhoi*If*W0))
+
+                return (alpha/(60*60*24*365))*(9.8/1027)*gprime*ices*((Tpolyna-Tf)/4)*Hent/f,-data["shiflx"],stats
                 # return data['gprime'],-data["shiflx"],stats
 
 #condstructing depth from depth differences
@@ -1088,6 +1124,7 @@ def saltBoxes(fname):
     avgs = [northavg,eastavg,southavg,westavg,topavg]
     ax1.bar(barlabels,avgs,width=0.25,align='center',color="red",label="$\overline{u'v'}$")
     plt.legend()
+    plt.savefig("saltboxes.png")
 
     plt.show()
  
