@@ -1103,7 +1103,7 @@ def saltBoxes(fname):
     fluxvol = np.cumsum(fluxdivvol)
     fluxvol = fluxvol+saltinpolyna[0]
 
-    barlabels = ['north','east','south','west','top','advective','polynaflux','total']
+    barlabels = ['north','east','south','west','top']
     northavg = np.mean(-np.sum(north_polyna_face,axis=(1,2))[15:])/10**8
     eastavg = np.mean(-np.sum(east_polyna_face,axis=(1,2))[15:])/10**8
     southavg = np.mean(np.sum(south_polyna_face,axis=(1,2))[15:])/10**8
@@ -1111,12 +1111,12 @@ def saltBoxes(fname):
     topavg = np.mean(-np.sum(top_polyna_face,axis=(1,2))[15:])/10**8
     totalavg = np.mean(total[15:])/10**8
     matplotlib.rcParams.update({'font.size': 22})
-    fig, (ax1) = plt.subplots(1,1,figsize=(10,12))
+    fig, (ax1) = plt.subplots(1,1,figsize=(14,12))
     ax1.axhline(y=0,linewidth=1, color='black')
-    avgs = [northavg,eastavg,southavg,westavg,topavg,totalavg,polynaflux/10**8,totalavg+polynaflux/10**8]
+    avgs = [northavg,eastavg,southavg,westavg,topavg]
     ax1.bar(barlabels,avgs,width=0.5,label="$\overline{uv}$")
     #ax1.set_ylim(-30,30)
-    ax1.set_ylabel("(g/kg)*kg/s (in 10**8)")
+    ax1.set_ylabel(r'$\frac{g}{kg}~\frac{kg}{s} (10^8)$')
     plt.xticks(rotation=30, ha='right')
 
 
@@ -1130,6 +1130,7 @@ def saltBoxes(fname):
     ax1.bar(barlabels,avgs,width=0.25,align='center',color="red",label="$\overline{u'v'}$")
     plt.legend()
     plt.savefig("saltboxes.png")
+    plt.tight_layout()
 
     plt.show()
  
