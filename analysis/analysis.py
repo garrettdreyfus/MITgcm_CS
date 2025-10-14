@@ -496,7 +496,11 @@ def FStheory(fname,xval,include_stats=True):
                 fulldepthrho0 = np.mean(localdens[np.abs(zz)<abs(tcline_height)])
                 Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
                 # B0 = (np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+                # rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
                 rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
+                # Hent = hShelf+200
+                # rhoanom = (rho0/9.8)*(f*(np.abs(Btotal)/A)*(A/P)/(Hent**3))**(1/2)
+                
 
 
                 z_midshelf = (zgl+(abs(zgl)-200)/2)
@@ -507,7 +511,8 @@ def FStheory(fname,xval,include_stats=True):
 
                 z_midshelf = (zgl+(abs(zgl)-200)/2)
 
-                Spolyna = Socean + 1.5*rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0]
+                # Spolyna = Socean + 1.5*rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0]
+                return rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0], data['entrancesalt']-Socean,stats
                 # Tpolyna = -1.9#fpAtGl(0,Spolyna)
                 # Spolyna = data['scdw']
                 Tpolyna = data['tcdw']

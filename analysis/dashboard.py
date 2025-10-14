@@ -70,7 +70,7 @@ officialrunsdict = {\
 # graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf150/results","Reference",show=True)
 
 graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
-plt.show()
+plt.savefig("out.pdf")
 
 #graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
 #plt.show()
