@@ -415,7 +415,7 @@ def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o"
     data = timeSeries(fname)
     print("XVAL SUPPLIED")
     print(data["ts"])
-    shiflx = -np.nanmean(data["shiflx"][data["ts"]>7])
+    shiflx = -np.nanmean(data["shiflx"][data["ts"]*(10**9)>7])
     ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=125)
     return xval
 
@@ -1319,6 +1319,7 @@ def folderMapMoreGeneric(func,runsdict):
 
 def folderMapRefresh(runsdict,save=False):
     prepath = os.path.abspath(os.getcwd()).replace("analysis","experiments")
+    print(prepath)
     for k in runsdict.keys():
         for f in tqdm(glob.glob(str(prepath+"/"+k+"/*"), recursive = True)):
             for l in range(len(runsdict[k]["specialstring"])):

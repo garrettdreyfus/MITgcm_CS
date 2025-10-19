@@ -339,7 +339,7 @@ def FStheory(fname,xval,include_stats=True):
     for k in data.keys():
         if k != "ts":
             try:
-                data[k] = np.nanmean(data[k][data["ts"]>7])
+                data[k] = np.nanmean(data[k][data["ts"]*(10**9)>7])
             except:
                 data[k]=np.nan
 
@@ -358,16 +358,9 @@ def FStheory(fname,xval,include_stats=True):
     zgl = np.nanmin(icedraft)
 
 
-    shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
-
     ## Grab temperature at HUB depth
-    Tcdw = intTemp(hub,zgl,fname)
-    #Tcdw = (data["tcdw"]+2)
-
     ## ice shelf slope
     ices = slope(fname)
-    vol,thick, area = volume(fname)
-    #density using model density function
     ds = open_mdsdataset(fname,prefix=["SHIfwFlx"])
 
     dx = np.gradient(ds.XG)[0]
@@ -382,29 +375,6 @@ def FStheory(fname,xval,include_stats=True):
 
     zz = np.asarray(variables["zz"])[0]
 
-   
-
-
-    ## calculation of gprime
-    localdens = dens(sNorth,tNorth,abs(zz))
-    ## density gradient
-    gradd = np.abs(np.diff(localdens)/np.diff(zz))
-    #average depth of all above 80th percentile
-    tcline_height=np.mean(zz[:-1][gradd>np.quantile(gradd,0.85)])#+75
-    zpyci = np.argmin(np.abs(np.abs(zz)-abs(tcline_height)))
-    localdens = dens(sNorth,tNorth,abs(zz[zpyci]))
-
-
-    rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
-    rho_2i = np.logical_and(zz<zz[zpyci]+50,zz>zz[zpyci])
-    gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
-
-
-    Cp = 4186
-    If = 334000
-
-    deltaH = -(abs(tcline_height)- abs(hub))
-
 
     # f is defined in the model setup
     f = 1.3*10**-4
@@ -413,217 +383,57 @@ def FStheory(fname,xval,include_stats=True):
     Cp = 4186
     If = 334000
     #gprime_ext = data["gprime"]
-    stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
-    print(stats)
-    if not include_stats:
-        #return Tcdw*deltaH*(data["gprime"])/(f)*ices,-data["shiflx"]/(60*60*24*365)
+    zz_i = np.linspace(np.min(zz),np.max(zz),num=200)
+    sNorth_i = np.interp(zz_i,zz[::-1],sNorth[::-1])
+    zz=zz_i
 
-        return Tcdw*deltaH*gprime_ext/(f)*ices,-data["shiflx"]/(60*60*24*365)
-        #return ices,-data["shiflx"]/(60*60*24*365)
+    if data['overturning_connect']>0.015:
+        ## calculation of gprime
+        localdens = dens(sNorth,tNorth,abs(zz))
+        ## density gradient
+        gradd = np.abs(np.diff(localdens)/np.diff(zz))
+        #average depth of all above 80th percentile
+        tcline_height=np.mean(zz[:-1][gradd>np.quantile(gradd,0.85)])#+75
+        zpyci = np.argmin(np.abs(np.abs(zz)-abs(tcline_height)))
+        localdens = dens(sNorth,tNorth,abs(zz[zpyci]))
+        rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
+        rho_2i = np.logical_and(zz<zz[zpyci]+50,zz>zz[zpyci])
+        gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
+        Cp = 4186
+        If = 334000
+        deltaH = -(abs(tcline_height)- abs(hub))
+        Tcdw = intTemp(hub,zgl,fname)
+        stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
+        return np.nan,np.nan,stats
+        return ices*gprime_ext*deltaH/f*(Tcdw)/2,-data["shiflx"],stats
     else:
-        localdens = dens(sNorth,tNorth,0)
-        insitudens = dens(sNorth,tNorth,np.abs(zz))
-        #rho_1i = np.logical_and(zz>zz[zpyci],zz<zz[zpyci]+abs(tcline_height))
-        #rho_2i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-abs(tcline_height))
-        zz_i = np.linspace(np.min(zz),np.max(zz),num=200)
-        localdens_i = np.interp(zz_i,zz[::-1],localdens[::-1])
-        insitudens_i = np.interp(zz_i,zz[::-1],insitudens[::-1])
-        sNorth_i = np.interp(zz_i,zz[::-1],sNorth[::-1])
-        tNorth_i = np.interp(zz_i,zz[::-1],tNorth[::-1])
-        zz=zz_i
-        localdens=localdens_i
-        insitudens=insitudens_i
-        #N = np.mean(np.sqrt(-(9.8/1027)*np.diff(insitudens)/np.diff(zz))[zz[:-1]>(-1000)])
-        #N = np.max(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
-        N = np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz))
-        N = np.mean(N[np.abs(zz[:-1])<np.abs(hub)])
+        Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
 
-
-
-        rho_1i = np.logical_and(zz>-250,zz<0)
-        rho_2i = np.logical_and(zz<-250,zz>-260)
-        ce = 0.016
-        alpha = 0.044
-        rho0 = 1027
-
-        B0 = -(-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-        P = shelf_width+2*10000
-        A = (shelf_width*10000)
-
-        Nvis = 3.9*(B0*2/P)**(1/3)*(1/(hShelf+200))
-
-        print(B0)
-
-        # if B0<0:
-            # return np.nan, np.nan, stats
-        # else:
-            # return N , 3.9*(B0*2/P)**(1/3)*(1/(hShelf+200)), stats
-            # return N - 3.9*(B0*2/P)**(1/3)*(1/(hShelf+200)),data['overturning_connect'], stats
-	
-        if data['overturning_connect']>0.015:
-                fulldepthrho0 = np.max(localdens[np.abs(zz)<abs(hub)])
-
-                Socean = np.mean(sNorth_i[np.logical_and(np.abs(zz)<np.abs(hub),np.abs(zz)>abs(tcline_height))])
-                Tocean = np.mean(tNorth_i[np.logical_and(np.abs(zz)<np.abs(hub),np.abs(zz)>abs(tcline_height))])
-                print("Socean, Tocean", (Socean,Tocean))
-
-                # Tf = fpAtGl(zgl,34.5)
-                z_midshelf = (zgl+(abs(zgl)-200)/2)
-                Tf = fpAtGl(z_midshelf,Socean)
-
-                Sm = Socean/(1-(Cp/If)*(Tf-(Tocean)))
-                Hent = abs(hShelf)
-
-                Smid = Sm + (Socean-Sm)*(Hent/Hent)
-                Tmid = Tf + (Tocean-Tf)*(Hent/Hent)
-
-                rho_2 = dens((Smid+Socean)/2,(Tmid+Tocean)/2,0)
-                rho_1 = dens((Smid+Sm)/2,(Tmid+Tf)/2,0)
-
-                print("Ocean: ",Socean,Tocean,rho_2)
-                print("Melt: ",(Smid+Sm)/2,(Tmid+Tf)/2,rho_1)
-                print("HUB : " ,hub, " | Hshelf: ", Hent)
-                gprimegade = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-
-
-                Tf = fpAtGl(zgl,Socean)
-
-                return np.nan,np.nan,np.nan
-                return ices*gprime_ext*deltaH/f*(Tcdw),-data["shiflx"],stats
-
-                return gprime_ext*(Tocean-Tf)*ices*deltaH/f,-data["shiflx"],stats
-        else:
-                fulldepthrho0 = np.mean(localdens[np.abs(zz)<abs(tcline_height)])
-                Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-                # B0 = (np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-                # rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
-                rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
-                # Hent = hShelf+200
-                # rhoanom = (rho0/9.8)*(f*(np.abs(Btotal)/A)*(A/P)/(Hent**3))**(1/2)
-                
-
-
-                z_midshelf = (zgl+(abs(zgl)-200)/2)
-                # Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(tcline_height)])
-                Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(hShelf)+200])
-
-                # return 1.5*rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0], data['scdw']-data['ssurf'],stats
-
-                z_midshelf = (zgl+(abs(zgl)-200)/2)
-
-                # Spolyna = Socean + 1.5*rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0]
-                return rhoanom/rho_s_t(Socean,-1.9,abs(zgl))[0], data['entrancesalt']-Socean,stats
-                # Tpolyna = -1.9#fpAtGl(0,Spolyna)
-                # Spolyna = data['scdw']
-                Tpolyna = data['tcdw']
-                Tpolyna = -1.9
-                # Spolyna,Tpolyna = data['scdw'],data['tcdw']
-                Tf = fpAtGl(200,Spolyna)
-
-                Cp = 3.9943e03
-                If = 334000
-
-                Sm = Spolyna/(1-(Cp/If)*(Tf-(Tpolyna)))
-                # Sm = Spolyna+2.4*(Tf-(Tpolyna))
-                frac = (data['scdw']-data['ssurf'])/(Spolyna-Sm)
-                frac = 0.275
-                Smid = Sm + (Spolyna-Sm)*(0.40)
-                Tmid = Tf + (Tpolyna-Tf)*(0.40)
-                # (data['ssurf']) = (data['scdw']/(1-(Cp/If)*(Tf-(Tpolyna))))/coef
-
-                # return data['scdw'],(data['scdw']-data['ssurf']),stats
-                # return data['scdw'],(data['scdw']/(1-(Cp/If)*(Tf-(Tpolyna))))/data['ssurf'],stats
-                # return data['scdw']-data['ssurf'],data['tcdw']-data['tsurf'],stats
-                # return data['scdw'],(data['scdw']-data['ssurf'])/(data['tcdw']-data['tsurf']),stats
-                # return Spolyna,data['scdw'],stats
-
-                # Sp, melt, Vout, w
-                # return data['scdw'] - data['ssurf'], (Spolyna-Sm)*(frac),stats
-                # return data['scdw'] - Smid, data['shiflx'],stats
-                # return Spolyna,data['scdw'],stats
-
-                # return (data['scdw']-data['ssurf']),data['scdw']-Smid,stats
-                beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
-                gprimegade = 9.8*(beta*(Spolyna-Smid))/1027
-
-                depth = np.abs(np.asarray(variables["h"]))
-                yy = np.asarray(variables["yy"])
-                Yicefront = np.asarray(variables["Yicefront"])[0][0]
-                frontindex = np.argmin(np.abs(yy-Yicefront))
-                Hent = np.mean(depth[:,frontindex][depth[:,frontindex]>200]-200)
-
-
-
-                # return gprimegade*ices*(Tpolyna-Tmid)*Hent/f,-data["shiflx"],stats
-
-                # return data['scdw'],frac,stats
-
-                deltaS = Spolyna*(1-1/(1-(Cp/If)*(Tf-(Tpolyna))))
-                deltarho = deltaS*rho_s_t(Spolyna,Tpolyna,z_midshelf)[0]
-
-
-                rho_2 = dens(Spolyna,Tpolyna,z_midshelf)
-
-                rho_1 = dens(data['ssurf'],data['tsurf'],z_midshelf)
-                deltaS = Spolyna - data['ssurf']
-
-                deltarho = deltaS*rho_s_t(Spolyna,Tpolyna,z_midshelf)[0]
-                # gprimegadesurf = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-                gprimegadesurf = 9.8*(deltarho)/1027
-
-                rho_1 = dens(Spolyna-(Spolyna-Sm)/4,Tpolyna-(Tpolyna-Tf)/4,z_midshelf)
-                gprimegade = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-
-                # return Spolyna,(data['scdw']-data['ssurf'])/(data['tcdw']-data['tsurf']),stats
-                # return (data['scdw'],data['ssurf']),(data['tcdw'],data['tsurf']),stats
-                # return data['scdw']-data['ssurf'],((data['tcdw']-Tf)/30)*2.4,stats
-                # return data['entrancesalt'],Spolyna,stats
-
-                # return Spolyna-(Spolyna-Sm)/4,data['ssurf'],stats
-                # return data['scdw']-data['ssurf'],data['tcdw']-data['tsurf'],stats
-                # return Spolyna-(Spolyna-Sm)/2,data['ssurf'],stats
-
-
-                # rho_2 = dens(data['scdw'],data['tcdw'],0)
-                # rho_1 = dens(data['ssurf'],data['tsurf'],0)
-                # print("entrance",data["entrancesalt"])
-                # print("Polyna: ",Spolyna,Tpolyna,rho_2)
-                # print("Melt: ",Spolyna-(Spolyna-Sm)/2,Tpolyna-(Tpolyna-Tf)/2,rho_1)
-                # print("HUB : " ,hub, " | Hshelf: ", Hent)
-                gprimegade = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-                # return gprimegadesurf,data['gprime'],stats
-
-                Tf = fpAtGl(z_midshelf,Spolyna)
-                # print("ssurf",data['ssurf'],"scdw",data['scdw'])
-                # print("tsurf",data['tsurf'],"tcdw",data['tcdw'])
-
-                #rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
-                Hents = depth[:,frontindex][depth[:,frontindex]>200]
-
-                rhoanoms = (3.9**2)*(1/(Hents))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
-
-                rhomin,rhomax = np.nanquantile(rhoanoms,0.1),np.nanquantile(rhoanoms,0.9)
-
-                stratterm = rhomax-rhomin
-
-                Spolyna = Socean + 1*rhomin/(rho_s_t(Spolyna,Tpolyna,z_midshelf)[0])
-
-                D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
-
-                gprime = Spolyna*(1-1/D)*rho_s_t(Spolyna,Tpolyna,z_midshelf)[0] + (stratterm/6)
-
-                # return data['gprime'],9.8*(gprime)/1027,stats
-
-                rho0 = 1025
-                rhoi = 910
-                Cp = 4186
-                If = 334000
-                C = 1
-                W0 =  100000#(rho0*Cp)/(rhoi*If*C)
-                alpha =  C/((rho0*Cp)/(rhoi*If*W0))
-
-                return (alpha/(60*60*24*365))*(9.8/1027)*gprime*ices*((Tpolyna-Tf)/4)*Hent/f,-data["shiflx"],stats
-                # return data['gprime'],-data["shiflx"],stats
+        z_midshelf = (zgl+(abs(zgl)-200)/2)
+        depth = np.abs(np.asarray(variables["h"]))
+        yy = np.asarray(variables["yy"])
+        Yicefront = np.asarray(variables["Yicefront"])[0][0]
+        frontindex = np.argmin(np.abs(yy-Yicefront))
+        Hents = depth[:,frontindex][depth[:,frontindex]>200]
+        Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(np.nanmean(Hents))+200])
+        beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
+        rhoanoms = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(Hents**2)))
+        rhomin,rhomax = np.nanmin(rhoanoms),np.nanmax(rhoanoms)
+        stratterm = rhomax-rhomin
+        Spolyna = Socean + np.nanmean(rhoanoms)/beta
+        Tf = fpAtGl(z_midshelf,Spolyna)
+        Tpolyna = -1.9
+        D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
+        gprime = Spolyna*(1-1/D)*beta + (stratterm/6)
+        rho0 = 1025
+        rhoi = 910
+        Cp = 4186
+        If = 334000
+        C = 2
+        W0 =  100000#(rho0*Cp)/(rhoi*If*C)
+        alpha =  C/((rho0*Cp)/(rhoi*If*W0))
+        stats = {}
+        return (alpha/(60*60*24*365))*(9.8/1027)*gprime*ices*((Tpolyna-Tf))*np.mean(Hents-200)/f,-data["shiflx"],stats
 
 #condstructing depth from depth differences
 def depthFromdZ(ds):
@@ -840,6 +650,7 @@ def timeSeries(fname,refresh=False):
     icemaskm = np.logical_and(icedraft>0,icedraft<h)
     for k in range(shflx.shape[0]):
         shiwflxs.append(np.mean(shflx[k][icemaskm.T])*(60*60*24*365)*(1/920.0))
+    ipdb.set_trace()
 
     avgbts = [] #barotropic_streamfunction_max(fname)
     nanmask = ~np.isnan(shiwflxs)

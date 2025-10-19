@@ -20,6 +20,9 @@ officialrunsdict = {\
                   "varysf16":{"specialstring":['sf3sd300','sf3sd900','sf3cd150','sf3cd450','sf3cd700','sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150','sf1sd300','sf1sd900','warm-sf10','warm-sf3'], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*3,"description":["Different shelf depths"]},\
                  }
 # runsdict = {\
+    # "varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
+                 # }
+# runsdict = {\
 #                   "morediagsenhancedgprime16":{"specialstring":[], "marker":["$g'$"]*20 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
                    # "width16":{"specialstring":['nobathsaltedsf10150'], "marker":["$w$"]*20 ,"color":["pink","gray","red","orange","black","purple","cyan","green","olive","tan","rosybrown","sienna"],"description":["Different shelf depths"]},\
 #                   "varysf16":{"specialstring":[], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
@@ -46,12 +49,13 @@ officialrunsdict = {\
 #graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/width16/w75sf5/results","s40sf10")
 
 # folderMapRefresh(runsdict)
-# folderMap(runsdict)
+# folderMap(runsdict,savepath="out.png")
 # graph.folderMapGeneric(analysis.twinshadow,runsdict,zlabel="Connectedness Fraction",xlabel=r'$B_{\text{total}}$',savepath="/jbod/gdf/MITgcm_CS/pics/connectionvsB0.svg",threed=True)
 # plt.show()
 
-# folderMap(runsdict)
-# plt.show()
+folderMap(runsdict)
+plt.savefig("out.png")
+plt.show()
 # folderMapTimeSeries(runsdict,"")
 
 # graph.meltMapAverage("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
@@ -69,8 +73,8 @@ officialrunsdict = {\
 # graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf100/results","sf100",show=True)
 # graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf150/results","Reference",show=True)
 
-graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
-plt.savefig("out.pdf")
+# graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
+# plt.savefig("out.png")
 
 #graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
 #plt.show()
@@ -99,7 +103,7 @@ plt.savefig("out.pdf")
 #folderMapTimeSeries(runsdict,"")
 
 # graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
-# plt.show()
+# plt.savefig('out.pdf')
 #plt.show()
 #plt.show()
 #
