@@ -53,9 +53,9 @@ officialrunsdict = {\
 # graph.folderMapGeneric(analysis.twinshadow,runsdict,zlabel="Connectedness Fraction",xlabel=r'$B_{\text{total}}$',savepath="/jbod/gdf/MITgcm_CS/pics/connectionvsB0.svg",threed=True)
 # plt.show()
 
-folderMap(runsdict)
-plt.savefig("out.png")
-plt.show()
+# folderMap(runsdict)
+# plt.savefig("out.png")
+# plt.show()
 # folderMapTimeSeries(runsdict,"")
 
 # graph.meltMapAverage("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
@@ -76,7 +76,7 @@ plt.show()
 # graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
 # plt.savefig("out.png")
 
-#graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
+# # #graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
 #plt.show()
 #graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf50/results","Reference",show=True)
 # plt.show()
@@ -87,9 +87,11 @@ plt.show()
 #
 #graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/width16/unsalted250/results","reference",200*10**3,quant="SALT",dim="meridional",show=True)
 #graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf10bump-20points/results/","sf10bump-20points")
-# folderMap(runsdict,savepath="/jbod/gdf/MITgcm_CS/pics/meltevaluation.svg")
-# plt.show()
+folderMap(runsdict,savepath="/data/jbod/gdf/MITgcm_CS/pics/meltevaluation.svg")
+plt.savefig("out.png")
+plt.show()
 # analysis.saltBoxes("/data/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/results")
+# plt.savefig('saltboxes.png')
 # plt.show()
 # analysis.saltBoxes("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf20/results")
 # plt.show()
@@ -122,10 +124,9 @@ plt.show()
 #plt.show()
 
 # graph.folderMapGeneric(graph.connectionPlot,runsdict)
-#folderMapGeneric(gprimeWidth,runsdict)
-#plt.show()
-#folderMapGeneric(saltBudget,runsdict)
-#plt.show()
-#folderMapGeneric(steadyStateAverageSimple,runsdict)
-#plt.show()
+
+# graph.folderMapGeneric(graph.gprimeTheory,runsdict,\
+#                        xlabel = r'$g^{\prime}_{\text{dc}} (m/s^2)$',\
+#                        ylabel = r'$g^{\prime}_{\text{diagnosed}} (m/s^2)$')
+# plt.savefig('out.svg')
 

@@ -7,7 +7,9 @@ import gsw
 import glob
 from sklearn.linear_model import LinearRegression
 from jmd95 import dens
-from analysis import FStheory,slope,timeSeries, bottomMask, icemask, depthFromdZ 
+from jmd95_coef import rho_s_t
+from jmd95 import dens
+from analysis import FStheory,slope,timeSeries, bottomMask, icemask, depthFromdZ , fpAtGl
 from datainput import  matVarsFile, getIterNums, grabDeltaT, outPath, grabMatVars
 from xmitgcm import open_mdsdataset
 from matlabglib import GLIBfromFile
@@ -192,58 +194,94 @@ def bottomspinup(fname,description,times=np.array([])):
 
     plt.show()
 
-def gprimeWidth(fname,xval,fig,ax1,title="",color="blue",marker="o"):
+def gprimeTheory(fname,xval,fig,ax1,title="",color="blue",marker="o"):
+
+    shortname,_ = outPath(fname)
+    shortname = shortname.split("|")[1]
+    print(shortname)
+    #pull in timeseries data for returning the diagnosed meltrate 
     data = timeSeries(fname)
+
+    #Calculate HUB from model setup file
+    hub = GLIBfromFile(matVarsFile(fname))
+
+    #We care about the mean of the model output
     for k in data.keys():
         if k != "ts":
             try:
-                data[k] = np.nanmean(data[k][data["ts"]>2])
+                data[k] = np.nanmean(data[k][data["ts"]*(10**9)>7])
             except:
                 data[k]=np.nan
-    if "gprime" not in data.keys():
-        data["gprime"] = np.nan
-    print(data["gprime"])
-    variables = grabMatVars(fname,("Xeast","Xwest","Yicefront"))
-    yice = float(variables["Yicefront"])
-    shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
-    shiflx = -data["shiflx"]
-    xval,shiflx = FStheory(fname,xval)
-    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
 
-    times=getIterNums(fname)
-    ds = open_mdsdataset(fname,ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
-    inputname = "/".join(fname.split("/")[:-1])
-    icem = icemask(fname,ds)
-    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","tEast","sEast","icedraft","zz","h","yy","xx"))
+    ##Pull in relevant geometric parameters and hydrographic forcings
+    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","Zcdw_pt_shelf","tEast","sEast","icedraft","zz","h","yy","xx","saltfluxvals"))
+
     icedraft = np.asarray(variables["icedraft"])
     h = np.asarray(variables["h"])
+    hShelf = float(abs(np.asarray(variables["Hshelf"])[0][0])-abs(200))
+    #
+    ##Temperature and salinity at the northern boundary
     tNorth = np.asarray(variables["tEast"])[-1,:]
     sNorth = np.asarray(variables["sEast"])[-1,:]
-    rho0 = dens(sNorth,tNorth,0)
+
+    ## crude but accurate way to calculate the grounding line depth
     zgl = np.nanmin(icedraft)
 
-    max_height = variables["Zcdw_pt_South"][0][0]
-    tcline_height = (max_height-75)/2.0+75
-    localdens = dens(sNorth,tNorth,abs(200))
-    d = localdens
-    Zfull = np.asarray(list(ds.Z))
-    if np.sum(abs(tNorth-tNorth[0])>0.2)>0:#and np.sum(t>0.5)>0:
-        t = tNorth[sNorth>0.1]
-        Z = Zfull[sNorth>0.1]
-        s = sNorth[sNorth>0.1]
-        mldi = np.where(abs(tNorth-tNorth[0])>0.2)[0][0]
-        d = dens(sNorth,tNorth,Z[mldi])
-        rho_1 = np.nanmean(d[:mldi])
-        rho_2 = np.nanmean(d[mldi:min(mldi*2,len(d)-1)])
-        gprime_ext = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
+
+    ## Grab temperature at HUB depth
+    ## ice shelf slope
+    ices = slope(fname)
+    ds = open_mdsdataset(fname,prefix=["SHIfwFlx"])
+
+    dx = np.gradient(ds.XG)[0]
+    dy = np.gradient(ds.YG)[0] 
+
+    saltfluxvals = np.asarray(variables["saltfluxvals"])
+
+    yice = np.asarray(variables["Yicefront"])[0][0]
+
+    meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+    polynaflux = np.sum(saltfluxvals*dx*dy)
 
     zz = np.asarray(variables["zz"])[0]
-    zpyci = np.argmin(np.abs(np.abs(zz)-abs(max_height)))
+
+
+    # f is defined in the model setup
     f = 1.3*10**-4
-    ax1.scatter(gprime_ext*shelf_width,float(data["gprime"]),marker=marker,c=color)
-    plt.xlabel(r'$g^{\prime}_{ext} (m/s^2)$',fontsize=18)
-    plt.ylabel(r'$g^{\prime}_{in} (m/s^2)$',fontsize=18)
-    return gprime_ext
+    rho0 = 1025
+    rhoi = 910
+    Cp = 4186
+    If = 334000
+    #gprime_ext = data["gprime"]
+    zz_i = np.linspace(np.min(zz),np.max(zz),num=200)
+    sNorth_i = np.interp(zz_i,zz[::-1],sNorth[::-1])
+    tNorth_i = np.interp(zz_i,zz[::-1],tNorth[::-1])
+    tNorth = tNorth_i
+    sNorth = sNorth_i
+    zz=zz_i
+
+    Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+
+    z_midshelf = (zgl+(abs(zgl)-200)/2)
+    depth = np.abs(np.asarray(variables["h"]))
+    yy = np.asarray(variables["yy"])
+    Yicefront = np.asarray(variables["Yicefront"])[0][0]
+    frontindex = np.argmin(np.abs(yy-Yicefront))
+    Hents = depth[:,frontindex][depth[:,frontindex]>200]
+    Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(np.nanmean(Hents))+200])
+    beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
+    # rhoanoms = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(Hents**2)))
+    rhomin,rhomax = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.max(Hents)**2))),(rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.min(Hents)**2)))
+    rhomean = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.mean(Hents)**2)))
+    stratterm = rhomax-rhomin
+    Spolyna = Socean + np.nanmean(rhomean)/beta
+    Tf = fpAtGl(z_midshelf,Spolyna)
+    Tpolyna = -1.9
+    D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
+    gprime = Spolyna*(1-1/D)*beta + (stratterm/6)
+
+    ax1.scatter(gprime,float(data["gprime"]),marker=marker,c=color,s=125,label=shortname)
+    return gprime
 
 def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     data = timeSeries(fname)
@@ -413,8 +451,6 @@ def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o"
         return xval
 
     data = timeSeries(fname)
-    print("XVAL SUPPLIED")
-    print(data["ts"])
     shiflx = -np.nanmean(data["shiflx"][data["ts"]*(10**9)>7])
     ax1.scatter(xval,shiflx,c=color,marker=marker,label=shortname,s=125)
     return xval

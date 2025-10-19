@@ -354,6 +354,7 @@ def FStheory(fname,xval,include_stats=True):
     tNorth = np.asarray(variables["tEast"])[-1,:]
     sNorth = np.asarray(variables["sEast"])[-1,:]
 
+    vol,thick, area = volume(fname)
     ## crude but accurate way to calculate the grounding line depth
     zgl = np.nanmin(icedraft)
 
@@ -385,8 +386,16 @@ def FStheory(fname,xval,include_stats=True):
     #gprime_ext = data["gprime"]
     zz_i = np.linspace(np.min(zz),np.max(zz),num=200)
     sNorth_i = np.interp(zz_i,zz[::-1],sNorth[::-1])
+    tNorth_i = np.interp(zz_i,zz[::-1],tNorth[::-1])
+    tNorth = tNorth_i
+    sNorth = sNorth_i
     zz=zz_i
-
+    rho0 = 1025
+    rhoi = 910
+    Cp = 4186
+    If = 334000
+    W0 =  100000#(rho0*Cp)/(rhoi*If*C)
+ 
     if data['overturning_connect']>0.015:
         ## calculation of gprime
         localdens = dens(sNorth,tNorth,abs(zz))
@@ -404,36 +413,46 @@ def FStheory(fname,xval,include_stats=True):
         deltaH = -(abs(tcline_height)- abs(hub))
         Tcdw = intTemp(hub,zgl,fname)
         stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
-        return np.nan,np.nan,stats
-        return ices*gprime_ext*deltaH/f*(Tcdw)/2,-data["shiflx"],stats
+        # return np.nan,np.nan,stats
+        C = 2.5
+        alpha =  C/((rho0*Cp)/(rhoi*If*W0))
+        return np.nan,np.nan,np.nan
+        return (alpha/(60*60*24*365))*ices*gprime_ext*deltaH/f*(Tcdw),-data["shiflx"],stats
     else:
-        Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-
+        x = Symbol('x',real=True,positive=True)
+        meltflux = x*(1/(60*60*24*365))*(920.0)
+        Btotal = ((-meltflux*area*dx*dy*34.5)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+ 
+        # Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
         z_midshelf = (zgl+(abs(zgl)-200)/2)
         depth = np.abs(np.asarray(variables["h"]))
         yy = np.asarray(variables["yy"])
         Yicefront = np.asarray(variables["Yicefront"])[0][0]
         frontindex = np.argmin(np.abs(yy-Yicefront))
+
         Hents = depth[:,frontindex][depth[:,frontindex]>200]
+
         Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(np.nanmean(Hents))+200])
         beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
-        rhoanoms = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(Hents**2)))
-        rhomin,rhomax = np.nanmin(rhoanoms),np.nanmax(rhoanoms)
+        rhomin,rhomax = (rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmax(Hents)),(rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmin(Hents))
+        rhomean = (rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmean(Hents))
         stratterm = rhomax-rhomin
-        Spolyna = Socean + np.nanmean(rhoanoms)/beta
+        Spolyna = Socean + rhomean/beta
         Tf = fpAtGl(z_midshelf,Spolyna)
         Tpolyna = -1.9
         D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
         gprime = Spolyna*(1-1/D)*beta + (stratterm/6)
-        rho0 = 1025
-        rhoi = 910
-        Cp = 4186
-        If = 334000
-        C = 2
-        W0 =  100000#(rho0*Cp)/(rhoi*If*C)
-        alpha =  C/((rho0*Cp)/(rhoi*If*W0))
         stats = {}
-        return (alpha/(60*60*24*365))*(9.8/1027)*gprime*ices*((Tpolyna-Tf))*np.mean(Hents-200)/f,-data["shiflx"],stats
+        C = 1.375*4
+        alpha =  C/((rho0*Cp)/(rhoi*If*W0))
+
+        solveexpr = x - (alpha/(60*60*24*365))*(9.8/1027)*gprime*ices*((Tpolyna-Tf)/4)*np.mean(Hents-200)/f
+        disconnectedmelt = float(re(nsolve(solveexpr,x,0)))
+ 
+        print(disconnectedmelt,-data["shiflx"],stats)
+        return disconnectedmelt,-data["shiflx"],stats
+        # return np.nan,np.nan,stats
+
 
 #condstructing depth from depth differences
 def depthFromdZ(ds):
@@ -914,7 +933,7 @@ def saltBoxes(fname):
     fluxvol = np.cumsum(fluxdivvol)
     fluxvol = fluxvol+saltinpolyna[0]
 
-    barlabels = ['north','east','south','west','top']
+    barlabels = ['North','East','South','West','Top']
     northavg = np.mean(-np.sum(north_polyna_face,axis=(1,2))[15:])/10**8
     eastavg = np.mean(-np.sum(east_polyna_face,axis=(1,2))[15:])/10**8
     southavg = np.mean(np.sum(south_polyna_face,axis=(1,2))[15:])/10**8
@@ -925,20 +944,20 @@ def saltBoxes(fname):
     fig, (ax1) = plt.subplots(1,1,figsize=(14,12))
     ax1.axhline(y=0,linewidth=1, color='black')
     avgs = [northavg,eastavg,southavg,westavg,topavg]
-    ax1.bar(barlabels,avgs,width=0.5,label="$\overline{uv}$")
+    ax1.bar(barlabels,avgs,width=0.5,label="Mean")
     #ax1.set_ylim(-30,30)
     ax1.set_ylabel(r'$\frac{g}{kg}~\frac{kg}{s} (10^8)$')
     plt.xticks(rotation=30, ha='right')
 
 
-    barlabels = ['north','east','south','west','top']
+    barlabels = ['North','East','South','West','Top']
     northavg = np.mean(-np.sum(north_polyna_face-north_polyna_face_barbar,axis=(1,2))[10:])/10**8
     eastavg = np.mean(-np.sum(east_polyna_face-east_polyna_face_barbar,axis=(1,2))[10:])/10**8
     southavg = np.mean(np.sum(south_polyna_face-south_polyna_face_barbar,axis=(1,2))[10:])/10**8
     westavg = np.mean(np.sum(west_polyna_face-west_polyna_face_barbar,axis=(1,2))[10:])/10**8
     topavg = np.mean(-np.sum(top_polyna_face-top_polyna_face_barbar,axis=(1,2))[10:])/10**8
     avgs = [northavg,eastavg,southavg,westavg,topavg]
-    ax1.bar(barlabels,avgs,width=0.25,align='center',color="red",label="$\overline{u'v'}$")
+    ax1.bar(barlabels,avgs,width=0.25,align='center',color="red",label="Eddy")
     plt.legend()
     plt.savefig("saltboxes.png")
     plt.tight_layout()
