@@ -327,7 +327,7 @@ def twinshadow(fname,xval,fig,ax1,title="",color="blue",marker="o",znum=0):
             ax1.plot((disconnectedBtotal,connectedBtotal),(znum,znum),(data["overturning_connect"],data["overturning_connect"]),color=color)
 
 
-def FStheory(fname,xval,include_stats=True):
+def FStheory(fname,xval,regime = "default"):
 
     #pull in timeseries data for returning the diagnosed meltrate 
     data = timeSeries(fname)
@@ -395,8 +395,12 @@ def FStheory(fname,xval,include_stats=True):
     Cp = 4186
     If = 334000
     W0 =  100000#(rho0*Cp)/(rhoi*If*C)
- 
-    if data['overturning_connect']>0.015:
+    if regime=="default":
+        if data['overturning_connect']>0.015:
+            regime="connected"
+        else:
+            regime="disconnected"
+    if regime=="connected":
         ## calculation of gprime
         localdens = dens(sNorth,tNorth,abs(zz))
         ## density gradient
@@ -416,8 +420,12 @@ def FStheory(fname,xval,include_stats=True):
         # return np.nan,np.nan,stats
         C = 2.5
         alpha =  C/((rho0*Cp)/(rhoi*If*W0))
-        return np.nan,np.nan,np.nan
-        return (alpha/(60*60*24*365))*ices*gprime_ext*deltaH/f*(Tcdw),-data["shiflx"],stats
+
+        meltflux = (alpha/(60*60*24*365))*ices*gprime_ext*deltaH/f*(Tcdw)*(1/(60*60*24*365))*(920.0)
+        if abs(meltflux*area*dx*dy*34.5)>abs(np.mean(polynaflux)):
+            return (alpha/(60*60*24*365))*ices*gprime_ext*deltaH/f*(Tcdw),-data["shiflx"],stats
+        else:
+            return np.nan, -data["shiflx"], {}
     else:
         x = Symbol('x',real=True,positive=True)
         meltflux = x*(1/(60*60*24*365))*(920.0)
@@ -433,23 +441,23 @@ def FStheory(fname,xval,include_stats=True):
         Hents = depth[:,frontindex][depth[:,frontindex]>200]
 
         Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(np.nanmean(Hents))+200])
+        Tocean = -1.9#tNorth_i[0]
         beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
         rhomin,rhomax = (rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmax(Hents)),(rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmin(Hents))
         rhomean = (rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmean(Hents))
         stratterm = rhomax-rhomin
         Spolyna = Socean + rhomean/beta
         Tf = fpAtGl(z_midshelf,Spolyna)
-        Tpolyna = -1.9
+        Tpolyna = Tocean
         D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
         gprime = Spolyna*(1-1/D)*beta + (stratterm/6)
         stats = {}
-        C = 1.375*4
+        C = 1#.375*4
         alpha =  C/((rho0*Cp)/(rhoi*If*W0))
 
         solveexpr = x - (alpha/(60*60*24*365))*(9.8/1027)*gprime*ices*((Tpolyna-Tf)/4)*np.mean(Hents-200)/f
         disconnectedmelt = float(re(nsolve(solveexpr,x,0)))
  
-        print(disconnectedmelt,-data["shiflx"],stats)
         return disconnectedmelt,-data["shiflx"],stats
         # return np.nan,np.nan,stats
 
@@ -669,7 +677,6 @@ def timeSeries(fname,refresh=False):
     icemaskm = np.logical_and(icedraft>0,icedraft<h)
     for k in range(shflx.shape[0]):
         shiwflxs.append(np.mean(shflx[k][icemaskm.T])*(60*60*24*365)*(1/920.0))
-    ipdb.set_trace()
 
     avgbts = [] #barotropic_streamfunction_max(fname)
     nanmask = ~np.isnan(shiwflxs)
@@ -965,3 +972,116 @@ def saltBoxes(fname):
     plt.show()
  
 
+
+def saltBoxesnew(fname):
+
+    times=getIterNums(fname)
+
+    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
+    ds = open_mdsdataset(fname,prefix=["UVEL","VVEL","THETA","SALT","momKE","SHIfwFlx","VVELSLT","UVELSLT","WVEL","WVELSLT","RHOAnoma"],ignore_unknown_vars=True,iters=times,extra_variables = extra_variables)
+    times = np.asarray( [0]+list(ds.time.values))*(10**-9)
+
+    yice = grabMatVars(fname,("Yicefront"))["Yicefront"][0][0]
+    yshelf = grabMatVars(fname,("Yshelfbreak"))["Yshelfbreak"][0][0]
+    ycoast = grabMatVars(fname,("Ycoast"))["Ycoast"][0][0]
+    xeast = grabMatVars(fname,("Xeast"))["Xeast"][0][0]
+    xwest = grabMatVars(fname,("Xwest"))["Xwest"][0][0]
+    saltfluxvals = grabMatVars(fname,("saltfluxvals"))["saltfluxvals"].T
+
+    vvelslt = ds.VVELSLT.values
+    uvelslt = ds.UVELSLT.values
+    wvelslt = ds.WVELSLT.values
+
+    salt = ds.SALT.values
+
+    vvel = ds.VVEL.values
+    uvel = ds.UVEL.values
+    wvel = ds.WVEL.values
+
+    merid_salt_transport = ds.dxG.values*(ds.hFacS*ds.drF).values*vvelslt*1027
+    zonal_salt_transport = ds.dyC.values*(ds.hFacW*ds.drF).values*uvelslt*1027
+    top_salt_transport = ds.rA.values*wvelslt*1027
+
+    #vbarsbar = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*(salt+np.roll(salt,axis=0)*1027
+    vbarsbar = ds.dxG.values*(ds.hFacS*ds.drF).values*vvel*salt*1027
+    ubarsbar = ds.dyC.values*(ds.hFacW*ds.drF).values*uvel*salt*1027
+    wbarsbar = ds.dyC.values*(ds.hFacW*ds.drF).values*wvel*salt*1027
+
+    back_polyna_y = np.argmax(saltfluxvals[:,91]!=0)
+    infront_polyna_y = saltfluxvals.shape[0]-np.argmax(saltfluxvals[::-1,91]!=0)-1
+
+    east_polyna_x = np.argmin(np.abs(ds.XC.values-(xeast)))+1
+    west_polyna_x = np.argmin(np.abs(ds.XC.values-(xwest)))
+
+    topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-200))
+    # topface_i = np.argmin(np.abs(np.abs(ds.Z.values)-00))
+
+    top_polyna_face = top_salt_transport[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x-1]
+    north_polyna_face = merid_salt_transport[:,topface_i:,infront_polyna_y,west_polyna_x:east_polyna_x]
+    south_polyna_face = merid_salt_transport[:,topface_i:,back_polyna_y,west_polyna_x:east_polyna_x]
+    west_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,west_polyna_x]
+    east_polyna_face = zonal_salt_transport[:,topface_i:,back_polyna_y:infront_polyna_y,east_polyna_x]
+
+    top_polyna_face_barbar = wbarsbar[:,topface_i,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x-1]
+    north_polyna_face_barbar = vbarsbar[:,topface_i:,infront_polyna_y,west_polyna_x:east_polyna_x]
+    south_polyna_face_barbar = vbarsbar[:,topface_i:,back_polyna_y,west_polyna_x:east_polyna_x]
+    west_polyna_face_barbar = ubarsbar[:,topface_i:,back_polyna_y:infront_polyna_y,west_polyna_x]
+    east_polyna_face_barbar = ubarsbar[:,topface_i:,back_polyna_y:infront_polyna_y,east_polyna_x]
+ 
+    dx = np.gradient(ds.XG)[0]
+    dy = np.gradient(ds.YG)[0]
+    total = np.sum(south_polyna_face,axis=(1,2))+np.sum(west_polyna_face,axis=(1,2)) \
+            -np.sum(east_polyna_face,axis=(1,2))-np.sum(north_polyna_face,axis=(1,2))-np.sum(top_polyna_face,axis=(1,2))
+
+    salt = ds.SALT.values 
+    saltinpolyna = []
+    fluxdivvol = []
+    polynaflux = -np.sum(saltfluxvals[back_polyna_y:infront_polyna_y+1,west_polyna_x:east_polyna_x+1])*dx*dy
+    for k in range(salt.shape[0]):
+        salttslice = salt[k]
+        vol = ((ds.hFacC*ds.drF)*dx*dy)
+        averagesalt = ds.SALT[k]*vol
+        averagesalt = np.sum(averagesalt.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))/np.sum(vol.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))
+    
+        saltinpolyna.append(averagesalt)
+        W = (-west_polyna_x+east_polyna_x)*dx
+        L = (-back_polyna_y+infront_polyna_y)*dy
+        if k ==0:
+                deltaT = float(times[0])
+        else:
+                deltaT = float(times[k+1]-times[k])
+        fluxdivvol.append(deltaT*(total[k]+polynaflux)/(np.sum(vol.values[:,back_polyna_y:infront_polyna_y,west_polyna_x:east_polyna_x],axis=(0,1,2))))
+    fluxvol = np.cumsum(fluxdivvol)
+    fluxvol = fluxvol+saltinpolyna[0]
+
+    barlabels = ['North','East','South','West','Top']
+    northavg = np.mean(-np.sum(north_polyna_face,axis=(1,2))[15:])/10**8
+    eastavg = np.mean(-np.sum(east_polyna_face,axis=(1,2))[15:])/10**8
+    southavg = np.mean(np.sum(south_polyna_face,axis=(1,2))[15:])/10**8
+    westavg = np.mean(np.sum(west_polyna_face,axis=(1,2))[15:])/10**8
+    topavg = np.mean(-np.sum(top_polyna_face,axis=(1,2))[15:])/10**8
+    totalavg = np.mean(total[15:])/10**8
+    matplotlib.rcParams.update({'font.size': 22})
+    fig, (ax1) = plt.subplots(1,1,figsize=(14,12))
+    ax1.axhline(y=0,linewidth=1, color='black')
+    avgs = [northavg,eastavg,southavg,westavg,topavg]
+    ax1.bar(barlabels,avgs,width=0.5,label="Mean")
+    #ax1.set_ylim(-30,30)
+    ax1.set_ylabel(r'$\frac{g}{kg}~\frac{kg}{s} (10^8)$')
+    plt.xticks(rotation=30, ha='right')
+
+
+    barlabels = ['North','East','South','West','Top']
+    northavg = np.mean(-np.sum(north_polyna_face-north_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    eastavg = np.mean(-np.sum(east_polyna_face-east_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    southavg = np.mean(np.sum(south_polyna_face-south_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    westavg = np.mean(np.sum(west_polyna_face-west_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    topavg = np.mean(-np.sum(top_polyna_face-top_polyna_face_barbar,axis=(1,2))[10:])/10**8
+    avgs = [northavg,eastavg,southavg,westavg,topavg]
+    ax1.bar(barlabels,avgs,width=0.25,align='center',color="red",label="Eddy")
+    plt.legend()
+    plt.savefig("saltboxes.png")
+    plt.tight_layout()
+
+    plt.show()
+ 

@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib.lines import Line2D
 import matplotlib
 matplotlib.use('pdf')
 import matplotlib.pyplot as plt
@@ -283,7 +284,7 @@ def gprimeTheory(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     ax1.scatter(gprime,float(data["gprime"]),marker=marker,c=color,s=125,label=shortname)
     return gprime
 
-def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o"):
+def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
     data = timeSeries(fname)
     variables = grabMatVars(fname,("Xeast","Xwest","Yicefront","saltfluxvals"))
     extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
@@ -295,152 +296,12 @@ def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
     polynaflux = np.sum(saltfluxvals*dx*dy)
     starttime=7
+    data['ts'] = data['ts']*(10**9)
     ax1.scatter(np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime]),marker=marker,c=color,label=title,s=100)
-
+    print(np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime]))
     return 0
 
-def gprimeAll(fname,xval,fig,ax1,title="",color="blue",marker="o"):
-    data = timeSeries(fname)
-    for k in data.keys():
-        if k != "ts":
-            try:
-                data[k] = np.nanmean(data[k][data["ts"]>2])
-            except:
-                data[k]=np.nan
-    if "gprime" not in data.keys():
-        data["gprime"] = np.nan
-    variables = grabMatVars(fname,("Xeast","Xwest","Yicefront"))
-    yice = float(variables["Yicefront"])
-    shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
-    shiflx = -data["shiflx"]
-    xval,shiflx = FStheory(fname,xval)
-    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
-    extra_variables["KPPdiffT"] = dict(dims=["k","j","i"], attrs=dict(standard_name="KPP mld", units="m"))
-
-    times=getIterNums(fname)
-    ds = open_mdsdataset(fname,ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
-    inputname = "/".join(fname.split("/")[:-1])
-    icem = icemask(fname,ds)
-    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","tEast","sEast","icedraft","zz","h","yy","xx"))
-    icedraft = np.asarray(variables["icedraft"])
-    h = np.asarray(variables["h"])
-    #
-    tNorth = np.asarray(variables["tEast"])[-1,:]
-    sNorth = np.asarray(variables["sEast"])[-1,:]
-    rho0 = dens(sNorth,tNorth,0)
-    zgl = np.nanmin(icedraft)
-
-    max_height = variables["Zcdw_pt_South"][0][0]
-    tcline_height = (max_height-75)/2.0+75
-    localdens = dens(sNorth,tNorth,abs(tcline_height))
-    d = localdens
-    Z = np.asarray(list(ds.Z))
-    zz = np.asarray(variables["zz"])[0]
-    if np.sum(abs(tNorth-tNorth[0])>0.2)>0:#and np.sum(t>0.5)>0:
-        mldi = np.where(abs(tNorth-tNorth[0])>0.2)[0][0]
-        #cdwi = np.where(t>0)[0][0]
-        rho_1 = np.nanmean(d[:mldi])
-        rho_2 = np.nanmean(d[mldi:min(mldi*2,len(d)-1)])
-        #gprime_ext = np.nanmean(np.abs(np.diff(d)/np.diff(zz)))
-        gprime_ext = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-
-    zz = np.asarray(variables["zz"])[0]
-    zpyci = np.argmin(np.abs(np.abs(zz)-abs(max_height)))
-    gprime_ext = 9.8*(np.mean(localdens[zpyci:min(zpyci*2,len(localdens)-1)])-np.mean(localdens[:zpyci]))/np.mean(localdens[:min(zpyci*2,len(localdens)-1)])
-    f = 1.3*10**-4
-    #ax1.scatter(gprime_ext*shelf_width,float(data["gprime"])*840,marker=marker,c=color)
-    #ax1.scatter(gprime_ext*shelf_width,float(data["gprime"])*625000-525,marker=marker,c=color)
-    #ax1.scatter(gprime_ext*shelf_width,float(data["gprime"]),marker=marker,c=color)
-    W0 = gprime_ext*shelf_width/float(data["gprime"])
-    kpp = np.nanmean(ds.KPPdiffT.values,axis=0)
-    kpp = np.nanmean(kpp,axis=0)
-    kpp = np.nanmean(kpp[ds.YC.values<60000])
-    small=np.log10(np.abs(ds.THETA_inst.values[1]))<-3
-    smallmask=np.logical_and(small,ds.hFacC!=0)
-    smallmask = np.sum(smallmask,axis=0)
-    ax1.scatter(float(data["gprime"]),np.sum(smallmask[YY<60000]),marker=marker,c=color)
-    plt.xlabel(r'$g^{\prime}_{ext} (m/s^2)$',fontsize=18)
-    plt.ylabel(r'$g^{\prime}_{in} (m/s^2)$',fontsize=18)
-    return gprime_ext
-
-def saltBudget(fname,xval,fig,ax1,title="",color="blue",marker="o"):
-    data = timeSeries(fname)
-    if "tcdw" not in data:
-        return 0
-    for k in data.keys():
-        if k != "ts":
-            try:
-                data[k] = np.nanmean(data[k][data["ts"]>2])
-            except:
-                data[k]=np.nan
-    if "gprime" not in data.keys():
-        data["gprime"] = np.nan
-    variables = grabMatVars(fname,("Xeast","Xwest","Yicefront"))
-    yice = float(variables["Yicefront"])
-    shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
-    shiflx = -data["shiflx"]
-    xval,shiflx = FStheory(fname,xval)
-    extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
-
-    times=getIterNums(fname)
-    ds = open_mdsdataset(fname,ignore_unknown_vars=True,extra_variables = extra_variables,iters=times)
-    minvel = (ds.UVEL*(ds.THETA+1.8)).mean(dim="time",skipna=True).min(dim="XG").min(dim="XC").min(dim="Z")#.argmin(dim="YC")
-    ht = ds.UVEL.values*(ds.THETA.values+1.8)
-    ht = np.nanmean(ht,axis=0)
-    ht = np.nanmin(ht,axis=0)
-    ht = np.mean(ht,axis=1)
-    minvel=ht
-
-    inputname = "/".join(fname.split("/")[:-1])
-    icem = icemask(fname,ds)
-    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","tEast","sEast","icedraft","zz","h","yy","xx"))
-    icedraft = np.asarray(variables["icedraft"])
-    h = np.asarray(variables["h"])
-    meltline = ds.SHIfwFlx.mean(dim="time").mean(dim="XC").values
-    meltline = minvel
-    weighted = np.sum(meltline*np.asarray(range(len(meltline))))/np.sum(range(len(meltline)))
-    #iceline = np.mean(icedraft,axis=0)
-    #print("velmin: ",ds.UVEL.mean(dim="time",skipna=True).min(dim="XG").min(dim="Z").argmin(dim="YC").values)
-    #plt.plot(iceline)
-    #ax2 = plt.gca().twinx()
-    #plt.title(fname)
-    #ax2.plot(meltline)
-    #plt.show()
-    #print(minvel)
-    #
-    tNorth = np.asarray(variables["tEast"])[-1,:]
-    sNorth = np.asarray(variables["sEast"])[-1,:]
-    rho0 = dens(sNorth,tNorth,0)
-    zgl = np.nanmin(icedraft)
-
-    max_height = variables["Zcdw_pt_South"][0][0]
-    tcline_height = (max_height-75)/2.0+75
-    localdens = dens(sNorth,tNorth,abs(tcline_height))
-    d = localdens
-    Z = np.asarray(list(ds.Z))
-    zz = np.asarray(variables["zz"])[0]
-    if np.sum(abs(tNorth-tNorth[0])>0.2)>0:#and np.sum(t>0.5)>0:
-        mldi = np.where(abs(tNorth-tNorth[0])>0.2)[0][0]
-        #cdwi = np.where(t>0)[0][0]
-        rho_1 = np.nanmean(d[:mldi])
-        rho_2 = np.nanmean(d[mldi:min(mldi*2,len(d)-1)])
-        #gprime_ext = np.nanmean(np.abs(np.diff(d)/np.diff(zz)))
-        gprime_ext = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-
-    zz = np.asarray(variables["zz"])[0]
-    zpyci = np.argmin(np.abs(np.abs(zz)-abs(max_height)))
-    gprime_ext = 9.8*(np.mean(localdens[zpyci:min(zpyci*2,len(localdens)-1)])-np.mean(localdens[:zpyci]))/np.mean(localdens[:min(zpyci*2,len(localdens)-1)])
-    f = 1.3*10**-4
-    shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
-    #ax1.scatter(float(data["scdw"]-data["ssurf"])/float(data["tcdw"]-data["tsurf"]),data["froude"],marker=marker,c=color)
-    ax1.scatter(shelf_width,float(data["tcdw"]-data["tsurf"])**2,marker=marker,c=color)
-    #print(sNorth)
-    #ax1.scatter(float(data["scdw"]-data["ssurf"])/float(data["tcdw"]-data["tsurf"]),np.std(sNorth),marker=marker,c=color)
-    plt.xlabel(r'Width (m)',fontsize=18)
-    plt.ylabel(r'$(T_{cdw} - T_{surf})^2$',fontsize=18)
-    return gprime_ext
-
-def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o"):
+def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
     shortname,_ = outPath(fname)
     shortname = shortname.split("|")[1]
     if xval == None:
@@ -1308,7 +1169,7 @@ def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "
                     if threed:
                         func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key,znum=count)
                     else:
-                        func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key)
+                        func(f+"/results",None,fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=key,count=count)
                     count+=1
                     #except:
                         #print("yeesh")
@@ -1341,17 +1202,16 @@ def folderMapMoreGeneric(func,runsdict):
             for l in range(len(runsdict[k]["specialstring"])):
                 print(f)
                 key=runsdict[k]["specialstring"][l]
-                if "at125" in f:
-                    if key and key in f:
-                        #try:
-                        func(f+"/results",key)
-                        #except:
+                if key and key in f:
+                    #try:
+                    func(f+"/results",key)
+                    #except:
+                    #print("yeesh")
+                elif not key:
+                    #try:
+                    func(f+"/results",key)
+                    #except:
                         #print("yeesh")
-                    elif not key:
-                        #try:
-                        func(f+"/results",key)
-                        #except:
-                            #print("yeesh")
 
 def folderMapRefresh(runsdict,save=False):
     prepath = os.path.abspath(os.getcwd()).replace("analysis","experiments")
@@ -1722,4 +1582,45 @@ def overturning_plot(fname,name):
     # print(bools)
     # print(np.sum(bools)/len(bools))
     plt.show()
+
+
+def regime_plot(runsdict,savepath=False,xlabel="",ylabel="",zlabel = "",threed=False):
+    if not threed:
+        fig,axises = plt.subplots(1,1,figsize=(8,7))
+    else:
+        fig = plt.gcf()
+        axises = plt.figure().add_subplot(projection='3d')
+
+    count = 0
+    ticks = []
+    for k in runsdict.keys():
+        for f in glob.glob(str("/data/jbod/gdf/MITgcm_CS/experiments/"+k+"/*"), recursive = True):
+            for l in range(len(runsdict[k]["specialstring"])):
+                key=runsdict[k]["specialstring"][l]
+                if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
+                    #try:
+                    fname = f+"/results"
+                    color=runsdict[k]["color"][l]
+                    marker=runsdict[k]["marker"][l]
+                    title=key
+                    try:
+                        dc, melt, _ = FStheory(fname,None,regime = "disconnected")
+                    except:
+                        dc, melt, _ = np.nan, np.nan, np.nan
+                    c, melt, _ = FStheory(fname,None,regime = "connected")
+
+                    plt.scatter(count,c,c="orange",marker='s')
+                    plt.scatter(count,dc,c="purple",marker='s')
+                    plt.scatter(count,melt,c="red",marker='*')
+                    ticks.append(title)
+                    count+=1
+    plt.xticks(np.asarray(list(range(len(ticks)))), ticks,rotation=90,fontsize=14)
+    plt.gca().set_ylabel(r"$\dot{m}_{\mathrm{pred}} (m/yr)$",fontsize=24)
+    legend_elements = [
+                    Line2D([0], [0], marker='s', color='orange', label='Connected', markerfacecolor='orange', markersize=10,lw=0),
+                    Line2D([0], [0], marker='s', color='purple', label='Disconnected', markerfacecolor='purple', markersize=10,lw=0),
+                    Line2D([0], [0], marker='*', color='red', label='Diagnosed', markerfacecolor='green', markersize=10,lw=0)]
+
+    # Create the figure
+    plt.gca().legend(handles=legend_elements, loc='upper right')
 
