@@ -110,222 +110,6 @@ def slope(fname,method="param"):
         grad = np.sqrt(np.sum(grad,axis=0))
         return np.nanmedian(grad[np.logical_and(icedraft!=0,diff!=0)])#np.mean(diff[np.logical_and(icedraft!=0,diff!=0)]) #+ abs(zglib-zgl)/y
 
-def twinshadow(fname,xval,fig,ax1,title="",color="blue",marker="o",znum=0):
-
-    #pull in timeseries data for returning the diagnosed meltrate 
-    data = timeSeries(fname)
-
-    #Calculate HUB from model setup file
-    hub = GLIBfromFile(matVarsFile(fname))
-
-    #We care about the mean of the model output
-    for k in data.keys():
-        if k != "ts":
-            try:
-                data[k] = np.nanmean(data[k][data["ts"]>7])
-            except:
-                data[k]=np.nan
-
-    ##Pull in relevant geometric parameters and hydrographic forcings
-    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","Zcdw_pt_shelf","tEast","sEast","icedraft","zz","h","yy","xx","saltfluxvals"))
-
-    icedraft = np.asarray(variables["icedraft"])
-    h = np.asarray(variables["h"])
-    hShelf = float(abs(np.asarray(variables["Hshelf"])[0][0])-abs(200))
-    #
-    ##Temperature and salinity at the northern boundary
-    tNorth = np.asarray(variables["tEast"])[-1,:]
-    sNorth = np.asarray(variables["sEast"])[-1,:]
-
-    ## crude but accurate way to calculate the grounding line depth
-    zgl = np.nanmin(icedraft)
-
-
-    shelf_width = float(variables["Xeast"])-float(variables["Xwest"])
-
-    ## Grab temperature at HUB depth
-    Tcdw = intTemp(hub,zgl,fname)
-    #Tcdw = (data["tcdw"]+2)
-
-    ## ice shelf slope
-    ices = slope(fname)
-    vol,thick, area = volume(fname)
-    #density using model density function
-    ds = open_mdsdataset(fname,prefix=["SHIfwFlx"])
-
-    dx = np.gradient(ds.XG)[0]
-    dy = np.gradient(ds.YG)[0] 
-
-    saltfluxvals = np.asarray(variables["saltfluxvals"])
-
-    yice = np.asarray(variables["Yicefront"])[0][0]
-
-    meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
-    polynaflux = np.sum(saltfluxvals*dx*dy)
-
-    zz = np.asarray(variables["zz"])[0]
-
-   
-
-
-    ## calculation of gprime
-    localdens = dens(sNorth,tNorth,abs(zz))
-    ## density gradient
-    gradd = np.abs(np.diff(localdens)/np.diff(zz))
-    #average depth of all above 80th percentile
-    tcline_height=np.mean(zz[:-1][gradd>np.quantile(gradd,0.85)])#+75
-    zpyci = np.argmin(np.abs(np.abs(zz)-abs(tcline_height)))
-    localdens = dens(sNorth,tNorth,abs(zz[zpyci]))
-
-
-    rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
-    rho_2i = np.logical_and(zz<zz[zpyci]+50,zz>zz[zpyci])
-    gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
-
-
-    Cp = 4186
-    If = 334000
-
-    deltaH = -(abs(tcline_height)- abs(hub))
-
-
-    # f is defined in the model setup
-    f = 1.3*10**-4
-    rho0 = 1025
-    rhoi = 910
-    Cp = 4186
-    If = 334000
-    #gprime_ext = data["gprime"]
-    stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
-    print(stats)
-    localdens = dens(sNorth,tNorth,0)
-    insitudens = dens(sNorth,tNorth,np.abs(zz))
-    #rho_1i = np.logical_and(zz>zz[zpyci],zz<zz[zpyci]+abs(tcline_height))
-    #rho_2i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-abs(tcline_height))
-    zz_i = np.linspace(np.min(zz),np.max(zz),num=200)
-    localdens_i = np.interp(zz_i,zz[::-1],localdens[::-1])
-    insitudens_i = np.interp(zz_i,zz[::-1],insitudens[::-1])
-    sNorth_i = np.interp(zz_i,zz[::-1],sNorth[::-1])
-    tNorth_i = np.interp(zz_i,zz[::-1],tNorth[::-1])
-    zz=zz_i
-    localdens=localdens_i
-    insitudens=insitudens_i
-    #N = np.mean(np.sqrt(-(9.8/1027)*np.diff(insitudens)/np.diff(zz))[zz[:-1]>(-1000)])
-    #N = np.max(np.sqrt(-(9.8/localdens[:-1])*np.diff(localdens)/np.diff(zz)))
-    N = np.sqrt(-(9.8/insitudens[:-1])*np.diff(insitudens)/np.diff(zz))
-    N = np.mean(N[np.abs(zz[:-1])<np.abs(hub)])
-
-    rho_1i = np.logical_and(zz>-250,zz<0)
-    rho_2i = np.logical_and(zz<-250,zz>-260)
-    ce = 0.016
-    alpha = 0.044
-    rho0 = 1027
-
-    P = shelf_width+2*10000
-    A = (shelf_width*10000)
-
-    fulldepthrho0 = np.mean(localdens[np.abs(zz)<abs(tcline_height)])
-    # Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-    # # B0 = (np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-    # rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((np.abs(Btotal)/A)*(2*A/P))**(2/3)
-
-    # z_midshelf = (zgl+(abs(zgl)-200)/2)
-    # z_midshelf = (zgl+(abs(zgl)-200)/2)
-    # Spolyna = Socean + rhoanom/rho_s_t(Socean,-1.8,abs(zgl))[0]
-    # Tpolyna = -1.9
-    # Tf = fpAtGl(zgl,Spolyna)
-
-    # Sm = Socean/(1-(Cp/If)*(Tf-(Tpolyna)))
-
-    depth = np.abs(np.asarray(variables["h"]))
-    yy = np.asarray(variables["yy"])
-    Yicefront = np.asarray(variables["Yicefront"])[0][0]
-    frontindex = np.argmin(np.abs(yy-Yicefront))
-    Hent = np.mean(depth[:,frontindex][depth[:,frontindex]>200]-200)
-
-
-
-    # # Hent = abs(hShelf)
-    # Smid = Sm + (Spolyna-Sm)*((Hent)/Hent)
-    # Tmid = Tf + (Tpolyna-Tf)*((Hent)/Hent)
-
-    # rho_2 = dens((Smid+Spolyna)/2,(Tmid+Tpolyna)/2,0)
-
-    # #rho_2i = np.logical_and(np.abs(zz)<100)
-    # rho_2i = np.abs(zz)<np.abs(tcline_height)
-    # # rho_1 = np.nanmean(localdens[rho_2i])
-    # rho_1 = dens((Smid+Sm)/2,(Tmid+Tf)/2,0)
-
-    # print("Polyna: ",Spolyna,Tpolyna,rho_2)
-    # print("Melt: ",(Smid+Sm)/2,(Tmid+Tf)/2,rho_1)
-    # print("HUB : " ,hub, " | Hshelf: ", Hent)
-    # gprimegade = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-
-    # Tf = fpAtGl(zgl,Spolyna)
-    # # return gprimegade*ices*(Tpolyna-(Tmid+Tf)/2)*Hent/f,-data["shiflx"],stats
-
-
-    Btotal = (np.mean(np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-    if Btotal>0 or True:
-        x = Symbol('x',real=True,positive=True)
-        alpha = 0.05
-        meltflux = x*(1/(60*60*24*365))*(920.0)
-        Btotal = ((-meltflux*area*dx*dy*34.5)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-        # ipdb.set_trace()
-        # Btotal = (0 -np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-        print("Botal: ",Btotal)
-
-        rhoanom = (3.9**2)*(1/(hShelf+200))*(rho0/9.8)*((2*Btotal)/(P))**(2/3)
-
-        Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(tcline_height)])
-
-        Spolyna = Socean + rhoanom/rho_s_t(Socean,-1.8,abs(zgl))[0]
-        Tpolyna = -1.9
-
-        Smid = Spolyna
-        Tmid = Tpolyna
-
-        Tf = fpAtGl(zgl,Spolyna)
-
-        Sm = Socean/(1-(Cp/If)*(Tf-(Tpolyna)))
-
-
-        rho0 = dens(Socean,Tpolyna,0)
-        beta0,alpha0 = rho_s_t(Socean,Tpolyna,0)
-
-
-        rho_2 = rho0#dens(Spolyna,Tpolyna,0)
-        rho_1 = rho0 + beta0*(Sm-Spolyna) + alpha0*(Tf-Tpolyna)#dens((Spolyna+Smelt)/2,(Tpolyna+Tmelt)/2,0)
-
-        gprimegade = 9.8*(rho_2-rho_1)/np.mean((rho_1,rho_2))
-
-        # plt.scatter(gprimegade*(Tpolyna-(Tpolyna+Tf)/2)*alpha*Hent*ices/f,-data["shiflx"],marker=marker,c=color,label=title,s=100)
-
-        Tf = fpAtGl(zgl,Spolyna)
-        #plt.scatter(gprimegade*(Tpolyna-(Tpolyna+Tf)/2)*alpha*Hent*ices/f,-data["shiflx"],marker=marker,c=color,label=title,s=100)
-        # plt.scatter(Spolyna,-data["entrancesalt"],marker=marker,c=color,label=title,s=100)
-
-        solveexpr = x-gprimegade*(Tpolyna-(Tpolyna+Tf)/2)*alpha*Hent*ices/f
-
-        try:
-            disconnectedmelt = float(re(nsolve(solveexpr,x,0)))
-            meltflux = disconnectedmelt*(1/(60*60*24*365))*(920.0)
-            disconnectedBtotal = ((-meltflux*area*dx*dy*34.5)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-            ax1.scatter(disconnectedBtotal,znum,data["overturning_connect"],marker=marker+"|",c=color,label=title,s=100)
-        except:
-            1+1
-            disconnectedmelt = np.nan
-            disconnectedBtotal = np.nan
-
-        connectedmelt =  ices*gprime_ext*deltaH/f*(Tcdw)*0.5
-        meltflux = connectedmelt*(1/(0*60*24*365))*(920.0)
-        connectedBtotal = ((-meltflux*area*dx*dy*34.5)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
-
-        ax1.scatter(connectedBtotal,znum,data["overturning_connect"],marker=marker+"-",c=color,label=title,s=100)
-
-        if ~np.isnan(disconnectedBtotal):
-            ax1.plot((disconnectedBtotal,connectedBtotal),(znum,znum),(data["overturning_connect"],data["overturning_connect"]),color=color)
-
 
 def FStheory(fname,xval,regime = "default"):
 
@@ -395,6 +179,7 @@ def FStheory(fname,xval,regime = "default"):
     Cp = 4186
     If = 334000
     W0 =  100000#(rho0*Cp)/(rhoi*If*C)
+    print(fname,data['overturning_connect'])
     if regime=="default":
         if data['overturning_connect']>0.015:
             regime="connected"
@@ -411,21 +196,31 @@ def FStheory(fname,xval,regime = "default"):
         localdens = dens(sNorth,tNorth,abs(zz[zpyci]))
         rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
         rho_2i = np.logical_and(zz<zz[zpyci]+50,zz>zz[zpyci])
+
+        # beta = rho_s_t(34.5,-1.9,abs(tcline_height))[0]
+        # yy = np.asarray(variables["yy"])
+        # Yicefront = np.asarray(variables["Yicefront"])[0][0]
+        # frontindex = np.argmin(np.abs(yy-Yicefront))
+        # Btotal = -np.mean(polynaflux)/rho0*9.8*(7.8*10**(-4))
+        # depth = np.abs(np.asarray(variables["h"]))
+        # Hents = depth[:,frontindex][depth[:,frontindex]>200]
+        # drho = (rho0/9.8)*(f*(Btotal))**(1/2)/abs(tcline_height)
+
+        # gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-drho-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
         gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
+
         Cp = 4186
         If = 334000
         deltaH = -(abs(tcline_height)- abs(hub))
         Tcdw = intTemp(hub,zgl,fname)
-        stats = {"deltaH":deltaH,"Tcdw":Tcdw,"gprime":gprime_ext,"ices":ices}
+        stats = {"thickness":deltaH,"thermal":Tcdw,"gprime":gprime_ext,"ices":ices,"regime":regime}
         # return np.nan,np.nan,stats
-        C = 2.5
+        print(fname,stats)
+        C = 1
         alpha =  C/((rho0*Cp)/(rhoi*If*W0))
 
         meltflux = (alpha/(60*60*24*365))*ices*gprime_ext*deltaH/f*(Tcdw)*(1/(60*60*24*365))*(920.0)
-        if abs(meltflux*area*dx*dy*34.5)>abs(np.mean(polynaflux)):
-            return (alpha/(60*60*24*365))*ices*gprime_ext*deltaH/f*(Tcdw),-data["shiflx"],stats
-        else:
-            return np.nan, -data["shiflx"], {}
+        return (alpha)*ices*gprime_ext*deltaH/f*(Tcdw),-data["shiflx"],stats
     else:
         x = Symbol('x',real=True,positive=True)
         meltflux = x*(1/(60*60*24*365))*(920.0)
@@ -443,25 +238,25 @@ def FStheory(fname,xval,regime = "default"):
         Socean = np.mean(sNorth_i[np.abs(zz)<np.abs(np.nanmean(Hents))+200])
         Tocean = -1.9#tNorth_i[0]
         beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
-        rhomin,rhomax = (rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmax(Hents)),(rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmin(Hents))
+
+        rhomin,rhomax = (rho0/9.8)*(f*(Btotal*(9.8/1027)))**(1/2)/(np.nanmax(Hents)),(rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmin(Hents))
         rhomean = (rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmean(Hents))
         stratterm = rhomax-rhomin
         Spolyna = Socean + rhomean/beta
         Tf = fpAtGl(z_midshelf,Spolyna)
         Tpolyna = Tocean
         D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
-        gprime = Spolyna*(1-1/D)*beta + (stratterm/6)
+        gprime = (9.8/1027)*(Spolyna*(1-1/D)*beta + (stratterm/6))
         stats = {}
-        C = 1#.375*4
-        alpha =  C/((rho0*Cp)/(rhoi*If*W0))
+        alpha =  1.1/((rho0*Cp)/(rhoi*If*W0))
 
-        solveexpr = x - (alpha/(60*60*24*365))*(9.8/1027)*gprime*ices*((Tpolyna-Tf)/4)*np.mean(Hents-200)/f
+        solveexpr = x - (alpha/(60*60*24*365))*gprime*ices*((Tpolyna-Tf)/4)*np.mean(Hents-200)/f
         disconnectedmelt = float(re(nsolve(solveexpr,x,0)))
+
+        stats = {"thickness":np.mean(Hents-200),"thermal":((Tpolyna-Tf)/4).subs({x:disconnectedmelt}),"gprime":gprime.subs({x:disconnectedmelt}),"ices":ices,"regime":regime}
  
-        return disconnectedmelt,-data["shiflx"],stats
+        return disconnectedmelt*60*60*24*365,-data["shiflx"],stats
         # return np.nan,np.nan,stats
-
-
 #condstructing depth from depth differences
 def depthFromdZ(ds):
     U = ds.UVEL.values[0,:,:,:]
@@ -1085,3 +880,21 @@ def saltBoxesnew(fname):
 
     plt.show()
  
+
+def breakdown(fname,xval,fig,axises,title="",color="blue",marker="o",znum=0,count=0):
+    ((ax1,ax2),(ax3,ax4)) = axises
+    _,_,stats = FStheory(fname,None)
+    if "thickness" in stats.keys():
+        ax1.bar([title],stats["thickness"])
+        ax2.bar([title],stats["thermal"])
+        ax3.bar([title],stats["gprime"])
+        ax4.bar([title],stats["ices"])
+        ax1.tick_params(axis='x', labelrotation=45)
+        ax2.tick_params(axis='x', labelrotation=45)
+        ax3.tick_params(axis='x', labelrotation=45)
+        ax4.tick_params(axis='x', labelrotation=45)
+
+        ax1.set_title("H term")
+        ax2.set_title("Thermal term")
+        ax3.set_title("g' term")
+        ax4.set_title("slope term")

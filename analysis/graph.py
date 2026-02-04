@@ -296,9 +296,10 @@ def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
     meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
     polynaflux = np.sum(saltfluxvals*dx*dy)
     starttime=7
+    rho0 = 1027
     data['ts'] = data['ts']*(10**9)
-    ax1.scatter(np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime]),marker=marker,c=color,label=title,s=100)
-    print(np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux),np.mean(data["overturning_connect"][data["ts"]>starttime]))
+    Btotal = np.mean(-meltsaltflux[data["ts"]>starttime]+polynaflux)/rho0*9.8*(7.8*10**(-4))
+    ax1.scatter(Btotal,np.mean(data["overturning_connect"][data["ts"]>starttime]),marker=marker,c=color,label=title,s=100)
     return 0
 
 def steadyStateAverageSimple(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
@@ -1076,85 +1077,115 @@ def surfaceAnim(fname,description,times=np.array([]),quant="SALT"):
 
 
 def folderMap(runsdict,savepath=False):
-    fig,axises = plt.subplots(1,1,figsize=(8,7))
+    fig,(ax1,ax2) = plt.subplots(1,2,figsize=(20,8))
     xs,ys,eyeds = [],[],{}
-    stats = {"deltaH":[],"Tcdw":[],"gprime":[],"ices":[]}
+    keys = []
+    colors, markers = [],[]
+    stats = {"thickness":[],"thermal":[],"gprime":[],"ices":[],"regime":[]}
     statscounter = 0
     for k in runsdict.keys():
         for f in glob.glob(str("../experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
                 key=runsdict[k]["specialstring"][l]
                 if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
-                    try:
-                        x,y,newstats=FStheory(f+"/results",None,True)
-                        for j in newstats.keys():
+                    # try:
+                    x,y,newstats=FStheory(f+"/results",None)
+                    for j in newstats.keys():
+                        if j =="regime":
+                            stats[j].append(newstats[j]=="connected")
+                        else:
                             stats[j].append(newstats[j])
-                        if ~np.isnan(y) and ~np.isnan(x):
-                            xs.append(x)
-                            ys.append(y)
-                            eyeds[f+str(l)]=len(xs)-1
-                    except:
-                        print("yeesh")
+                    if ~np.isnan(y) and ~np.isnan(x):
+                        xs.append(x)
+                        ys.append(y)
+                        eyeds[f+str(l)]=len(xs)-1
+                        keys.append(key)
+                        colors.append(runsdict[k]["color"][l])
+                        markers.append(runsdict[k]["marker"][l])
+                    # except:
+                    #     print("yeesh")
                 elif not key:
-                    try:
-                        x,y,newstats=FStheory(f+"/results",None,true)
-                        for j in newstats.keys():
-                            stats[j].append(newstats[j])
-                        if ~np.isnan(y) and ~np.isnan(x):
-                            xs.append(x)
-                            ys.append(y)
-                            eyeds[f+str(l)]=len(xs)-1
-                    except:
-                        print("yeesh")
-    for k in stats.keys():
-        print(k,np.nanmean(stats[k]),np.nanstd(stats[k]))
-    print(xs,ys)
-    xs = np.asarray(([xs])).reshape((-1, 1))
-    model = LinearRegression(fit_intercept=False).fit(xs, ys)
+                    # try:
+                    x,y,newstats=FStheory(f+"/results",None)
+                    if j =="regime":
+                        stats[j].append(newstats[j]=="connected")
+                    else:
+                        stats[j].append(newstats[j])
+                    if ~np.isnan(y) and ~np.isnan(x):
+                        print(x,y)
+                        xs.append(x)
+                        ys.append(y)
+                        eyeds[f+str(l)]=len(xs)-1
+                        keys.append(key)
+                        colors.append(runsdict[k]["color"][l])
+                        markers.append(runsdict[k]["marker"][l])
+                    # except:
+                    # except:
+                        # print("yeesh")
+    # for k in stats.keys():
+        # print(k,np.nanmean(stats[k]),np.nanstd(stats[k]))
+    regimes = np.asarray(stats['regime'])
+    xs = np.asarray(xs)
+    ys = np.asarray(ys)
     rho0 = 1025
     rhoi = 910
     Cp = 4186
     If = 334000
-    C = model.coef_
-    print("model_coef: ",model.coef_)
-    #W0 = (rho0*Cp)/(rhoi*If*C)
     W0 =  100000#(rho0*Cp)/(rhoi*If*C)
-    alpha =  C/((rho0*Cp)/(rhoi*If*W0))
-    print("alpha:",alpha)
-    oldxs=xs
-    #xs= xs*(rho0*Cp)/(rhoi*If*325000)
-    xs=model.predict(xs)
-    plt.text(.05, .95, '$r^2=$'+str(round(float(pearsonr(oldxs.flatten(),ys)[0])**2,2)), ha='left', va='top', transform=plt.gca().transAxes,fontsize=18)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
+ 
 
-    plt.gca().set_xlabel(r"$\dot{m}_{\mathrm{pred}} (m/yr)$",fontsize=24)
-    plt.gca().set_ylabel(r'$\dot{m}_{\mathrm{obs}} (m/yr)$',fontsize=24)
+    cxs = np.asarray(([xs[regimes==1]])).reshape((-1, 1))
+    cys = np.asarray(ys[regimes==1])
+    model = LinearRegression(fit_intercept=False).fit(cxs, cys)
+    cC = model.coef_
+    calpha =  cC/((rho0*Cp)/(rhoi*If*W0))
+    cxs=model.predict(cxs)
+
+    dcxs = np.asarray(([xs[regimes==0]])).reshape((-1, 1))
+    dcys = np.asarray(ys[regimes==0])
+    model = LinearRegression(fit_intercept=False).fit(dcxs, dcys)
+    dcC = model.coef_
+    dcalpha =  dcC/((rho0*Cp)/(rhoi*If*W0))
+    dcxs=model.predict(dcxs)
 
 
-    plt.plot([0.2,1.4],[0.2,1.4],linestyle="dashed")
-    plt.xlim(0,1.4)
-    plt.ylim(0.2,1.4)
-    for k in runsdict.keys():
-        for f in glob.glob(str("../experiments/"+k+"/*"), recursive = True):
-            for l in range(len(runsdict[k]["specialstring"])):
-                key=runsdict[k]["specialstring"][l]
-                if key and key in f:
-                    if f+str(l) in eyeds.keys():
-                        steadyStateAverageSimple(f+"/results",xs[eyeds[f+str(l)]],fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
-                elif not key:
-                    try:
-                        if f+str(l) in eyeds.keys():
-                            steadyStateAverageSimple(f+"/results",xs[eyeds[f+str(l)]],fig,axises,color=runsdict[k]["color"][l],marker=runsdict[k]["marker"][l],title=runsdict[k]["description"][0])
-                    except:
-                        print("yeesh")
-            if savepath:
-                plt.savefig(savepath)
-    plt.legend()
 
-def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "",threed=False):
+    ax2.text(.05, .95, '$r^2=$'+str(round(float(pearsonr(cxs,cys)[0])**2,2)), ha='left', va='top', transform=ax2.transAxes,fontsize=18)
+    ax2.text(.05, .90, r'$\alpha=$'+str(round(float(calpha),2)), ha='left', va='top', transform=ax2.transAxes,fontsize=18)
+    ax2.tick_params(axis='x', labelsize=14)
+    ax2.tick_params(axis='y', labelsize=14)
+
+    ax1.text(.05, .95, '$r^2=$'+str(round(float(pearsonr(dcxs,dcys)[0])**2,2)), ha='left', va='top', transform=ax1.transAxes,fontsize=18)
+    ax1.text(.05, .90, r'$\alpha=$'+str(round(float(dcalpha),2)), ha='left', va='top', transform=ax1.transAxes,fontsize=18)
+    ax1.tick_params(axis='x', labelsize=14)
+    ax1.tick_params(axis='y', labelsize=14)
+
+    ax2.set_xlabel(r"$\dot{m}_{\mathrm{connected}} (m/yr)$",fontsize=24)
+    ax2.set_ylabel(r'$\dot{m}_{\mathrm{model}} (m/yr)$',fontsize=24)
+    ax2.plot([0,12],[0,12],linestyle="dashed")
+    # ax2.set_xlim(0,3)
+    # ax2.set_ylim(0,3)
+    ax2.grid(True)
+
+    ax1.set_xlabel(r"$\dot{m}_{\mathrm{disconnected}} (m/yr)$",fontsize=24)
+    ax1.set_ylabel(r'$\dot{m}_{\mathrm{model}} (m/yr)$',fontsize=24)
+    ax1.plot([0,12],[0,12],linestyle="dashed")
+    ax1.set_xlim(0,1.5)
+    ax1.set_ylim(0,1.5)
+    ax1.grid(True)
+
+    for i in range(len(xs)):
+        if stats["regime"][i]:
+            ax2.scatter(xs[i]*cC,ys[i],c=colors[i],marker=markers[i],label=keys[i],s=125)
+        else:
+            ax1.scatter(xs[i]*dcC,ys[i],c=colors[i],marker=markers[i],label=keys[i],s=125)
+
+    ax1.legend(loc="lower right")
+    ax2.legend(loc="lower right")
+
+def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "",threed=False,axx=1,axy=1):
     if not threed:
-        fig,axises = plt.subplots(1,1,figsize=(8,7))
+        fig,axises = plt.subplots(axx,axy,figsize=(16*0.5,14*0.5))
     else:
         fig = plt.gcf()
         axises = plt.figure().add_subplot(projection='3d')
@@ -1194,6 +1225,7 @@ def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "
     #plt.axhline(y=0)
     #plt.axvline(x=-250)
     plt.legend()
+    plt.grid(True)
     plt.savefig('out.png')
 
 def folderMapMoreGeneric(func,runsdict):
@@ -1301,7 +1333,7 @@ def crossAndMelt(fname,name=""):
     plt.close()
 
 def folderMapTimeSeries(runsdict,save=True):
-    fig,axises = plt.subplots(2,3,figsize=(8,7))
+    fig,axises = plt.subplots(2,3,figsize=(24,30))
     for k in runsdict.keys():
         for f in glob.glob(str("../experiments/"+k+"/*"), recursive = True):
             for l in range(len(runsdict[k]["specialstring"])):
@@ -1506,10 +1538,10 @@ def buildPortfolio(fname,name):
     crossSectionAverage(fname,shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD.png")
     crossSectionAverage(fname,shortname,175*10**3,quant="DENS",dim="zonal",show=False,savepath=foliopath+"/175zonalD-nf.png",fixcb=False)
 
-    topMap(fname,shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT.png")
-    topMap(fname,shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT-nf.png",fixcb=False)
-    topMap(fname,shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS.png")
-    topMap(fname,shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS-nf.png",fixcb=False)
+    topMap(fname[:-1],shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT.png")
+    topMap(fname[:-1],shortname,quant="THETA",show=False,savepath=foliopath+"/topbotT-nf.png",fixcb=False)
+    topMap(fname[:-1],shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS.png")
+    topMap(fname[:-1],shortname,quant="SALT",show=False,savepath=foliopath+"/topbotS-nf.png",fixcb=False)
 
 def overturning_plot(fname,name):
 
@@ -1530,7 +1562,7 @@ def overturning_plot(fname,name):
 
     vvel = ds.VVEL
 
-    transport = (vvel*ds.hFacS*ds.drF*ds.dxG)[10:].mean(dim="time").sum(dim="XC").where(ds.YG<190000)
+    transport = (vvel*ds.hFacS*ds.drF*ds.dxG)[16:].mean(dim="time").sum(dim="XC").where(ds.YG<190000)
     
 
     transport = transport.cumsum(dim="Z")
@@ -1569,7 +1601,8 @@ def overturning_plot(fname,name):
     cbar.ax.tick_params(axis='both', labelsize=16)
 
     plt.tight_layout()
-    plt.savefig('/jbod/gdf/MITgcm_CS/pics/overturning'+name+".png",dpi=350)
+    print(name)
+    plt.savefig('/data/jbod/gdf/MITgcm_CS/pics/overturning'+name+".png",dpi=350)
 
     # bools = []
     # for i in range(len(contours.collections)):
