@@ -30,6 +30,7 @@ def intTemp(depth,zgl,fname,fixsal=None):
     ## forcing temperature at north eastern end of domain
     tEast = tEast[int(tEast.shape[0]-1)]
     sEast = sEast[int(sEast.shape[0]-1)]
+
     if fixsal:
         Tf= (0.0901-0.0575*fixsal) - (7.61*10**(-4))*pp
     else:
@@ -111,7 +112,7 @@ def slope(fname,method="param"):
         return np.nanmedian(grad[np.logical_and(icedraft!=0,diff!=0)])#np.mean(diff[np.logical_and(icedraft!=0,diff!=0)]) #+ abs(zglib-zgl)/y
 
 
-def FStheory(fname,xval,regime = "default"):
+def FStheory(fname,xval,regime = "default",shelf=False):
 
     #pull in timeseries data for returning the diagnosed meltrate 
     data = timeSeries(fname)
@@ -187,6 +188,25 @@ def FStheory(fname,xval,regime = "default"):
             regime="disconnected"
     if regime=="connected":
         ## calculation of gprime
+        if shelf:
+            ds = open_mdsdataset(fname,prefix=["SHIfwFlx","SALT","THETA"])
+            yindex = np.argmin(np.abs(ds.YC.values-yice-2000))
+            hfac = ds.hFacC[:,yindex:yindex+2,75:125].mean(axis=1).mean(axis=1)
+            cutoff = np.where(hfac.values!=1)[0][0]-1
+            sNorth = ds.SALT[17:].mean(axis=0)[:,yindex:yindex+2,75:125].mean(axis=1).mean(axis=1)
+            tNorth = ds.THETA[17:].mean(axis=0)[:,yindex:yindex+2,75:125].mean(axis=1).mean(axis=1)
+
+            zz = np.asarray(variables["zz"])[0]
+
+            zz_i = np.linspace(zz[cutoff],np.max(zz),num=200)
+            sNorth_i = np.interp(zz_i,zz[cutoff::-1],sNorth[cutoff::-1])
+            tNorth_i = np.interp(zz_i,zz[cutoff::-1],tNorth[cutoff::-1])
+            zz = zz_i
+
+            tNorth = tNorth_i
+            sNorth = sNorth_i
+
+            # sNorth = ds.SALT.sel(Y
         localdens = dens(sNorth,tNorth,abs(zz))
         ## density gradient
         gradd = np.abs(np.diff(localdens)/np.diff(zz))
@@ -197,16 +217,16 @@ def FStheory(fname,xval,regime = "default"):
         rho_1i = np.logical_and(zz<zz[zpyci],zz>zz[zpyci]-50)
         rho_2i = np.logical_and(zz<zz[zpyci]+50,zz>zz[zpyci])
 
+        meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+
         # beta = rho_s_t(34.5,-1.9,abs(tcline_height))[0]
         # yy = np.asarray(variables["yy"])
         # Yicefront = np.asarray(variables["Yicefront"])[0][0]
         # frontindex = np.argmin(np.abs(yy-Yicefront))
-        # Btotal = -np.mean(polynaflux)/rho0*9.8*(7.8*10**(-4))
         # depth = np.abs(np.asarray(variables["h"]))
         # Hents = depth[:,frontindex][depth[:,frontindex]>200]
-        # drho = (rho0/9.8)*(f*(Btotal))**(1/2)/abs(tcline_height)
+        # drho = (rho0/9.8)*(f*(Btotal))**(1/2)/np.nanmean(Hents)
 
-        # gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-drho-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
         gprime_ext = 9.8*(np.nanmean(localdens[rho_1i])-np.nanmean(localdens[rho_2i]))/np.mean(localdens[np.logical_or(rho_1i,rho_2i)])
 
         Cp = 4186
@@ -216,17 +236,23 @@ def FStheory(fname,xval,regime = "default"):
         stats = {"thickness":deltaH,"thermal":Tcdw,"gprime":gprime_ext,"ices":ices,"regime":regime}
         # return np.nan,np.nan,stats
         print(fname,stats)
-        C = 1
-        alpha =  C/((rho0*Cp)/(rhoi*If*W0))
+        C =  ((rho0*Cp)/(rhoi*If*W0))
 
-        meltflux = (alpha/(60*60*24*365))*ices*gprime_ext*deltaH/f*(Tcdw)*(1/(60*60*24*365))*(920.0)
-        return (alpha)*ices*gprime_ext*deltaH/f*(Tcdw),-data["shiflx"],stats
+        print(stats)
+
+        return (C)*ices*gprime_ext*deltaH/f*(Tcdw)*(60*60*24*365),-data["shiflx"],stats
     else:
+        ## Let us walk through this because it requires some precisionn
+        #x is the area average melt rate in m/yr
         x = Symbol('x',real=True,positive=True)
-        meltflux = x*(1/(60*60*24*365))*(920.0)
-        Btotal = ((-meltflux*area*dx*dy*34.5)-np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+
+        # we convert the melt rate to a buoyancy (note the conversion to m/s of melt)
+        meltflux = (x/(60*60*24*365))*(920.0)
+        # melt is positive, polyna flux is negative
+
+        Btotal = ((meltflux*area*dx*dy*34.5)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
  
-        # Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+        # defining some useful geometric paramters, the ice draft is 200m
         z_midshelf = (zgl+(abs(zgl)-200)/2)
         depth = np.abs(np.asarray(variables["h"]))
         yy = np.asarray(variables["yy"])
@@ -239,8 +265,9 @@ def FStheory(fname,xval,regime = "default"):
         Tocean = -1.9#tNorth_i[0]
         beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
 
-        rhomin,rhomax = (rho0/9.8)*(f*(Btotal*(9.8/1027)))**(1/2)/(np.nanmax(Hents)),(rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmin(Hents))
-        rhomean = (rho0/9.8)*(f*(Btotal))**(1/2)/(np.nanmean(Hents))
+        ## The equations are in the SI but this solves for g'_dc
+        rhomin,rhomax = (rho0/9.8)*(f*(-Btotal))**(1/2)/(np.nanmax(Hents)),(rho0/9.8)*(f*(-Btotal))**(1/2)/(np.nanmin(Hents))
+        rhomean = (rho0/9.8)*(f*(-Btotal))**(1/2)/(np.nanmean(Hents))
         stratterm = rhomax-rhomin
         Spolyna = Socean + rhomean/beta
         Tf = fpAtGl(z_midshelf,Spolyna)
@@ -248,14 +275,22 @@ def FStheory(fname,xval,regime = "default"):
         D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
         gprime = (9.8/1027)*(Spolyna*(1-1/D)*beta + (stratterm/6))
         stats = {}
-        alpha =  1.1/((rho0*Cp)/(rhoi*If*W0))
 
-        solveexpr = x - (alpha/(60*60*24*365))*gprime*ices*((Tpolyna-Tf)/4)*np.mean(Hents-200)/f
-        disconnectedmelt = float(re(nsolve(solveexpr,x,0)))
+        # 0.2 is the alpha calculated from regresssing onto these same equations but setting Bpolyna to the diagnosed Bpolyna
+        alpha = 0.25
+        C =  (alpha*(rho0*Cp)/(rhoi*If*W0))
+        # This freezing temperature is not the bulk layer temp used in the g' calculation but rather the temperature of water leaving the cavity
+        Tf = fpAtGl(200,Spolyna)
 
-        stats = {"thickness":np.mean(Hents-200),"thermal":((Tpolyna-Tf)/4).subs({x:disconnectedmelt}),"gprime":gprime.subs({x:disconnectedmelt}),"ices":ices,"regime":regime}
+        # Remember x is m/yr, however our equations for \dot{m} are in m/s so we need the 60*60*24*365 conversion factor. Remember ice draft is 200
+        solveexpr = x - (C*(60*60*24*365))*gprime*ices*((Tpolyna-Tf))*np.mean(Hents-200)/f
+        disconnectedmelt = float(re(nsolve(solveexpr,x,1)))
+
+        stats = {"thickness":np.mean(Hents-200),"thermal":((Tpolyna-Tf)).subs({x:disconnectedmelt}),"gprime":gprime.subs({x:disconnectedmelt}),"ices":ices,"regime":regime}
+        # stats = {"thickness":np.mean(Hents-200),"thermal":((Tpolyna-Tf)),"gprime":gprime,"ices":ices,"regime":regime}
  
-        return disconnectedmelt*60*60*24*365,-data["shiflx"],stats
+        print(stats)
+        return disconnectedmelt/alpha,-data["shiflx"],stats
         # return np.nan,np.nan,stats
 #condstructing depth from depth differences
 def depthFromdZ(ds):

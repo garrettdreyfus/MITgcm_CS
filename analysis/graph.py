@@ -195,7 +195,7 @@ def bottomspinup(fname,description,times=np.array([])):
 
     plt.show()
 
-def gprimeTheory(fname,xval,fig,ax1,title="",color="blue",marker="o"):
+def gprimeTheory(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
 
     shortname,_ = outPath(fname)
     shortname = shortname.split("|")[1]
@@ -274,12 +274,13 @@ def gprimeTheory(fname,xval,fig,ax1,title="",color="blue",marker="o"):
     # rhoanoms = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(Hents**2)))
     rhomin,rhomax = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.max(Hents)**2))),(rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.min(Hents)**2)))
     rhomean = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.mean(Hents)**2)))
+    print("DELTA RHO: ",rhomean)
     stratterm = rhomax-rhomin
     Spolyna = Socean + np.nanmean(rhomean)/beta
     Tf = fpAtGl(z_midshelf,Spolyna)
     Tpolyna = -1.9
     D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
-    gprime = Spolyna*(1-1/D)*beta + (stratterm/6)
+    gprime = 9.8*(Spolyna*(1-1/D)*beta + (stratterm/6))/1027
 
     ax1.scatter(gprime,float(data["gprime"]),marker=marker,c=color,s=125,label=shortname)
     return gprime
@@ -427,7 +428,7 @@ def timeSeriesDashboard(fname,label,fig,axises,times=np.array([]),color="yellow"
  
 def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=None,show=True,savepath=False,fixcb=True):
     if not ax1:
-        fig,ax1 = plt.subplots(figsize=(10,8))
+        fig,ax1 = plt.subplots(figsize=(13,8))
     extra_variables = dict( SHIfwFlx = dict(dims=["k","j","i"], attrs=dict(standard_name="Shelf Fresh Water Flux", units="kg/m^3")))
     times=getIterNums(fname)
     if quant=="UVEL":
@@ -515,9 +516,9 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
         if "VEL" in quant:
             c=ax1.pcolormesh(ys/1000,zs/1000,zvals,cmap="seismic",zorder=5,vmin=cavmin,vmax=cavmax)
         if quant=="DENS":
-            c = ax1.pcolormesh(ys,zs,zvals,cmap="jet",vmin=cavmin,vmax=cavmax)
+            c = ax1.pcolormesh(ys/1000,zs,zvals,cmap="jet",vmin=cavmin,vmax=cavmax)
         else:
-            c = ax1.pcolormesh(ys,zs,zvals,cmap="jet",vmin=cavmin,vmax=cavmax)
+            c = ax1.pcolormesh(ys/1000,zs,zvals,cmap="jet",vmin=cavmin,vmax=cavmax)
  
         
     plt.xticks(fontsize=16)
@@ -542,8 +543,10 @@ def crossSectionAverage(fname,description,selval,quant="THETA",dim="zonal",ax1=N
     plt.colorbar(c,cax=caxout)#,ticks=[-2,0,1])
     caxout.set_ylabel('$^\circ$C', rotation=0,fontsize=18)
 
-    ax1.set_ylabel('Depth (km)',fontsize=18)
-    ax1.set_xlabel('Cross Shelf Distance (km)',fontsize=18)
+    ax1.set_ylabel('Depth (m)',fontsize=18)
+    ax1.set_xlabel('Distance (m)',fontsize=18)
+    ax1.set_xlim(100,300)
+    ax1.set_ylim(-750,0)
     if show:
         plt.show()
     if savepath:
@@ -1075,7 +1078,6 @@ def surfaceAnim(fname,description,times=np.array([]),quant="SALT"):
             frame.remove()
 
 
-
 def folderMap(runsdict,savepath=False):
     fig,(ax1,ax2) = plt.subplots(1,2,figsize=(20,8))
     xs,ys,eyeds = [],[],{}
@@ -1138,25 +1140,25 @@ def folderMap(runsdict,savepath=False):
     cys = np.asarray(ys[regimes==1])
     model = LinearRegression(fit_intercept=False).fit(cxs, cys)
     cC = model.coef_
-    calpha =  cC/((rho0*Cp)/(rhoi*If*W0))
+    calpha =  cC
     cxs=model.predict(cxs)
 
     dcxs = np.asarray(([xs[regimes==0]])).reshape((-1, 1))
     dcys = np.asarray(ys[regimes==0])
     model = LinearRegression(fit_intercept=False).fit(dcxs, dcys)
     dcC = model.coef_
-    dcalpha =  dcC/((rho0*Cp)/(rhoi*If*W0))
+    dcalpha =  dcC
     dcxs=model.predict(dcxs)
 
 
 
     ax2.text(.05, .95, '$r^2=$'+str(round(float(pearsonr(cxs,cys)[0])**2,2)), ha='left', va='top', transform=ax2.transAxes,fontsize=18)
-    ax2.text(.05, .90, r'$\alpha=$'+str(round(float(calpha),2)), ha='left', va='top', transform=ax2.transAxes,fontsize=18)
+    ax2.text(.05, .90, r'$\alpha=$'+str(round(float(calpha),3)), ha='left', va='top', transform=ax2.transAxes,fontsize=18)
     ax2.tick_params(axis='x', labelsize=14)
     ax2.tick_params(axis='y', labelsize=14)
 
     ax1.text(.05, .95, '$r^2=$'+str(round(float(pearsonr(dcxs,dcys)[0])**2,2)), ha='left', va='top', transform=ax1.transAxes,fontsize=18)
-    ax1.text(.05, .90, r'$\alpha=$'+str(round(float(dcalpha),2)), ha='left', va='top', transform=ax1.transAxes,fontsize=18)
+    ax1.text(.05, .90, r'$\alpha=$'+str(round(float(dcalpha),3)), ha='left', va='top', transform=ax1.transAxes,fontsize=18)
     ax1.tick_params(axis='x', labelsize=14)
     ax1.tick_params(axis='y', labelsize=14)
 
@@ -1182,6 +1184,100 @@ def folderMap(runsdict,savepath=False):
 
     ax1.legend(loc="lower right")
     ax2.legend(loc="lower right")
+
+def folderMapCombined(runsdict,savepath=False):
+    fig,(ax1) = plt.subplots(1,1,figsize=(10,8))
+    xs,ys,eyeds = [],[],{}
+    keys = []
+    colors, markers = [],[]
+    stats = {"thickness":[],"thermal":[],"gprime":[],"ices":[],"regime":[]}
+    statscounter = 0
+    for k in runsdict.keys():
+        for f in glob.glob(str("../experiments/"+k+"/*"), recursive = True):
+            for l in range(len(runsdict[k]["specialstring"])):
+                key=runsdict[k]["specialstring"][l]
+                if key and "/"+key in f and key == f.rsplit('/', 1)[-1]:
+                    # try:
+                    x,y,newstats=FStheory(f+"/results",None)
+                    for j in newstats.keys():
+                        if j =="regime":
+                            stats[j].append(newstats[j]=="connected")
+                        else:
+                            stats[j].append(newstats[j])
+                    if ~np.isnan(y) and ~np.isnan(x):
+                        xs.append(x)
+                        ys.append(y)
+                        eyeds[f+str(l)]=len(xs)-1
+                        keys.append(key)
+                        colors.append(runsdict[k]["color"][l])
+                        markers.append(runsdict[k]["marker"][l])
+                    # except:
+                    #     print("yeesh")
+                elif not key:
+                    # try:
+                    x,y,newstats=FStheory(f+"/results",None)
+                    if j =="regime":
+                        stats[j].append(newstats[j]=="connected")
+                    else:
+                        stats[j].append(newstats[j])
+                    if ~np.isnan(y) and ~np.isnan(x):
+                        print(x,y)
+                        xs.append(x)
+                        ys.append(y)
+                        eyeds[f+str(l)]=len(xs)-1
+                        keys.append(key)
+                        colors.append(runsdict[k]["color"][l])
+                        markers.append(runsdict[k]["marker"][l])
+                    # except:
+                    # except:
+                        # print("yeesh")
+    # for k in stats.keys():
+        # print(k,np.nanmean(stats[k]),np.nanstd(stats[k]))
+    regimes = np.asarray(stats['regime'])
+    xs = np.asarray(xs)
+    ys = np.asarray(ys)
+    rho0 = 1025
+    rhoi = 910
+    Cp = 4186
+    If = 334000
+    W0 =  100000#(rho0*Cp)/(rhoi*If*C)
+ 
+
+    cxs = np.asarray(([xs[regimes==1]])).reshape((-1, 1))
+    cys = np.asarray(ys[regimes==1])
+    model = LinearRegression(fit_intercept=False).fit(cxs, cys)
+    cC = model.coef_
+    calpha =  cC
+    cxs=model.predict(cxs)
+
+    dcxs = np.asarray(([xs[regimes==0]])).reshape((-1, 1))
+    dcys = np.asarray(ys[regimes==0])
+    model = LinearRegression(fit_intercept=False).fit(dcxs, dcys)
+    dcC = model.coef_
+    dcalpha =  dcC
+    dcxs=model.predict(dcxs)
+
+
+
+    ax1.text(.05, .95, '$r^2=$'+str(round(float(pearsonr(np.concatenate((dcxs,cxs)),np.concatenate((dcys,cys)))[0])**2,2)), ha='left', va='top', transform=ax1.transAxes,fontsize=18)
+    ax1.text(.05, .90, r'$\alpha=$'+str(round(float(dcalpha),3)), ha='left', va='top', transform=ax1.transAxes,fontsize=18)
+    ax1.tick_params(axis='x', labelsize=14)
+    ax1.tick_params(axis='y', labelsize=14)
+
+    ax1.set_xlabel(r"$\dot{m} (m/yr)$",fontsize=24)
+    ax1.set_ylabel(r'$\dot{m}_{\mathrm{model}} (m/yr)$',fontsize=24)
+    ax1.plot([0,12],[0,12],linestyle="dashed")
+    # ax1.set_xlim(0,1.5)
+    # ax1.set_ylim(0,1.5)
+    ax1.grid(True)
+
+    for i in range(len(xs)):
+        if stats["regime"][i]:
+            ax1.scatter(xs[i]*cC,ys[i],c=colors[i],marker=markers[i],label=keys[i],s=125)
+        else:
+            ax1.scatter(xs[i]*dcC,ys[i],c=colors[i],marker=markers[i],label=keys[i],s=125)
+
+    ax1.legend(loc="lower right")
 
 def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "",threed=False,axx=1,axy=1):
     if not threed:
