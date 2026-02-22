@@ -29,9 +29,9 @@ warmrunsdict = {\
 # # runsdict['varysf16']["specialstring"] =  runsdict["varysf16"]["specialstring"] +["imroved-coldstart-warm-sf0","imroved-coldstart-warm-sf10","imroved-coldstart-warm-sf5","imroved-coldstart-warm-sf8","imroved-warmstart-warm-sf10","imroved-warmstart-warm-sf5","imroved-warmstart-warm-sf8"]
 
 # runsdict = warmrunsdict
-# graph.folderMapGeneric(graph.connectionPlot,warmrunsdict, ylabel = r'Connectedness Fraction', xlabel = r"$B_{\text{total}} (\frac{m^4}{s^3})$")
+# graph.folderMapGeneric(graph.connectionPlot,runsdict, ylabel = r'Connectedness Fraction', xlabel = r"$B_{\text{total}} (\frac{m^4}{s^3})$")
 # plt.grid(True)
-# plt.savefig('warm-connectedness.svg')
+# plt.savefig('connectedness.svg')
 # exit()
 # runsdict = {\
     # "varysf16":{"specialstring":['sf1','sf2','sf3','sf4','sf5','sf10','sf50','sf100','sf150'], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
@@ -42,18 +42,19 @@ warmrunsdict = {\
 #                   "varysf16":{"specialstring":[], "marker":["$sd$","$sd$","$cd$","$cd$","$cd$"]+["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
              # }
 
-runsdict = {\
+sfcomprunsdict = {\
                  "varysf16":{"specialstring":['sf10','sf50','sf100','sf150'], "marker":["$sf$"]*10 ,"color":["pink","red","orange","black","purple","cyan","green","gray","olive","tan","rosybrown","sienna"]*2,"description":["Different shelf depths"]},\
 }
 
 
-graph.folderMapGeneric(graph.gprimeTheory,runsdict,\
-                       xlabel = r'$g^{\prime}_{\text{dc}} (m/s^2)$',\
-                       ylabel = r'$g^{\prime}_{\text{diagnosed}} (m/s^2)$')
-plt.savefig('out.png')
-exit()
 
 
+# graph.overturning_plot("/data/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results","sf1")
+
+# graph.overturning_plot("/data/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
+# plt.show()
+#
+#
 # # graph.crossSectionAverage("/data/jbod/gdf/MITgcm_CS/experiments/varysf16/sf100/results","sf100",quant="DENS",dim="zonal",selval=155*1000,fixcb=False,savepath='/data/jbod/gdf/MITgcm_CS/analysis/out.png')
 # exit()
 #utils.generateRunsTable(runsdict)
@@ -62,16 +63,7 @@ exit()
 
 # THESE FIGURES ARE IN PAPER
 # analysis.letGgoCrazy("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results",0,"sf1")
-# graph.overturning_plot("/data/jbod/gdf/MITgcm_CS/experiments/varysf16/imroved-coldstart-warm-sf0/results","coldstart-warm-sf0")
-
 # graph.buildPortfolio("/data/jbod/gdf/MITgcm_CS/experiments/varysf16/imroved-coldstart-warm-sf0/results","coldstart-warm-sf0")
-# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
-# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/width16/w250sf5/results","w250sf5")
-# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
-# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/width16/w250sf5/results","sf10")
-
-# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf150/results","sf150")
-# graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
 #graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/width16/w75sf5/results","s40sf10")
 
 # folderMapRefresh(warmrunsdict)
@@ -82,67 +74,26 @@ exit()
 # folderMap(runsdict,savepath="out.png")
 # plt.show()
 # exit()
-# # graph.folderMapGeneric(analysis.twinshadow,runsdict,zlabel="Connectedness Fraction",xlabel=r'$B_{\text{total}}$',savepath="/jbod/gdf/MITgcm_CS/pics/connectionvsB0.svg",threed=True)
-# # plt.show()
 
 # graph.folderMapGeneric(analysis.breakdown,runsdict,savepath="/data/jbod/gdf/MITgcm_CS/pics/out.png",threed=False,axx=2,axy=2)
 # plt.show()
-folderMap(runsdict)
-plt.savefig("out.png")
-exit()
+# folderMap(runsdict)
+# plt.savefig("finalfit.svg")
 # plt.show()
 # folderMapTimeSeries(warmrunsdict,"")
 # plt.savefig("dashboard.png")
 # exit()
 
-# graph.meltMapAverage("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf10")
 # graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
-# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","Reference",show=True)
 # graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
 # plt.show()
 
 # graph.overturning_plot("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/s40sf10/results","s40sf10")
 # plt.show()
 
-# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","sf100",show=True)
-# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf50/results","sf100",show=True)
-# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf100/results","sf100",show=True)
-# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf150/results","Reference",show=True)
-# print("start")
 # graph.folderMapGeneric(graph.steadyStateAverageSimple,runsdict)
 # plt.savefig("out.png")
 # exit()
-
-# # #graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
-#plt.show()
-#graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf50/results","Reference",show=True)
-# plt.show()
-# graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf10/results","Reference",show=True)
-# plt.show()
-##graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf1bump-20points/results","Reference",quant="SALT",dim="meridional",selval=150*1000,fixcb=True)
-#plt.show()
-#
-
-# analysis.saltBoxesnew("/data/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/results")
-# plt.savefig('saltboxes.png')
-# plt.show()
-# exit()
-# folderMap(runsdict,savepath="/data/jbod/gdf/MITgcm_CS/pics/meltevaluation.svg")
-# plt.savefig("out.svg")
-# plt.show()
-# exit()
-# graph.regime_plot(runsdict)
-# plt.savefig("out.png")
-# plt.savefig("out.svg")
-# exit()
-#graph.crossSectionAverage("/jbod/gdf/MITgcm_CS/experiments/width16/unsalted250/results","reference",200*10**3,quant="SALT",dim="meridional",show=True)
-#graph.buildPortfolio("/jbod/gdf/MITgcm_CS/experiments/morediagsenhancedgprime16/sf10bump-20points/results/","sf10bump-20points")
-
-# analysis.saltBoxes("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf20/results")
-# plt.show()
-#analysis.overturning("/jbod/gdf/MITgcm_CS/experiments/morediagvarysf16/sf10/results")
-#plt.show()
-
 
 # analysis.overturning("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf1/results")
 # plt.show()
@@ -158,19 +109,35 @@ exit()
 #plt.show()
 #graph.crossSectionAnim("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf50/results/","Reference",quant="THETA",dim="meridional")
 
-#graph.TSAnim("/jbod/gdf/MITgcm_CS/experiments/width16/salted250/results/","Reference")
-#graph.volumetricTS("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf3cd700/results/","High slope")
-##graph.TSheatmap("/jbod/gdf/MITgcm_CS/experiments/colderboring16/d601/results/","Reference")
-#graph.bottomVtop("/jbod/gdf/MITgcm_CS/experiments/varysf16/sf5/results/","Reference")
-
 ##graph.bottomVtop("/jbod/gdf/MITgcm_CS/experiments/width16/salted75/results/","Reference")
 #plt.show()
 #graph.circulationFigure("/jbod/gdf/MITgcm_CS/experiments/width16/salted250/results","Reference")
 #plt.show()
+graph.folderMapGeneric(graph.gprimeTheory,sfcomprunsdict,\
+                       xlabel = r'$g^{\prime}_{\text{dc}}~\mathrm{(m/s^2)}$',\
+                       ylabel = r'$g^{\prime}_{\text{diagnosed}}~\mathrm{(m/s^2)}$')
+plt.savefig('gprime.svg')
+
+# # # #################
+# #### Plot comparing S(z)/D to Supper
+# #################
+graph.folderMapGeneric(graph.deltaRhoCompare,sfcomprunsdict,\
+                       xlabel = r'$\Delta \rho~\mathrm{(kg~m^{-3})}$',\
+                       ylabel = r'$max(\sigma_0)-min(\sigma_0)~\mathrm{(kg~m^{-3})}$')
+# plt.xlim(34.3,34.9)
+# plt.ylim(34.3,34.9)
+# plt.gca().plot([34.3,34.9],[34.3,34.9],linestyle='dashed')
+plt.savefig('out.svg')
 
 
-# graph.folderMapGeneric(graph.gprimeTheory,runsdict,\
-#                        xlabel = r'$g^{\prime}_{\text{dc}} (m/s^2)$',\
-#                        ylabel = r'$g^{\prime}_{\text{diagnosed}} (m/s^2)$')
-# plt.savefig('out.svg')
-
+# #################
+#### Plot comparing S(z)/D to Supper
+#################
+graph.folderMapGeneric(graph.saltLayerDiff,sfcomprunsdict,\
+                       xlabel = r'$\overline{\frac{S(z)}{D} }~\mathrm{(g/kg)}$',\
+                       ylabel = r'$\overline{S_\text{upper}}~\mathrm{(g/kg)}$')
+plt.xlim(34.3,34.9)
+plt.ylim(34.3,34.9)
+plt.gca().plot([34.3,34.9],[34.3,34.9],linestyle='dashed')
+plt.savefig('sgade.svg')
+exit()

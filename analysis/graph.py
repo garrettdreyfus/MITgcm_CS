@@ -273,18 +273,202 @@ def gprimeTheory(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
     beta = rho_s_t(Socean,-1.9,abs(z_midshelf))[0]
     # rhoanoms = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(Hents**2)))
     rhomin,rhomax = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.max(Hents)**2))),(rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.min(Hents)**2)))
+
     rhomean = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.mean(Hents)**2)))
+
     print("DELTA RHO: ",rhomean)
-    stratterm = rhomax-rhomin
+    print("Minimum H:",np.min(Hents))
+    print("Maximum H:",np.max(Hents))
+    print("C: ",(rhomax-rhomin)/rhomean)
+    stratterm = rhomean
     Spolyna = Socean + np.nanmean(rhomean)/beta
     Tf = fpAtGl(z_midshelf,Spolyna)
     Tpolyna = -1.9
-    D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
+    D = (1-(Cp/If)*(Tf-(Tpolyna))/3.5)
     gprime = 9.8*(Spolyna*(1-1/D)*beta + (stratterm/6))/1027
 
     ax1.scatter(gprime,float(data["gprime"]),marker=marker,c=color,s=125,label=shortname)
     return gprime
 
+def deltaRhoCompare(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
+
+    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","Zcdw_pt_shelf","tEast","sEast","icedraft","zz","h","yy","xx","saltfluxvals"))
+    shortname,_ = outPath(fname)
+    shortname = shortname.split("|")[1]
+    print(shortname)
+    icedraft = np.asarray(variables["icedraft"])
+    ## crude but accurate way to calculate the grounding line depth
+    zgl = np.nanmin(icedraft)
+
+    ds = open_mdsdataset(fname,prefix=["SHIfwFlx","THETA","SALT"])
+
+    #pull in timeseries data for returning the diagnosed meltrate 
+    data = timeSeries(fname)
+
+    #We care about the mean of the model output
+    ##Pull in relevant geometric parameters and hydrographic forcings
+    zz = np.asarray(variables["zz"])[0]
+
+
+    # f is defined in the model setup
+    Cp = 4186
+    If = 334000
+    z_midshelf = (zgl+(abs(zgl)-200)/2)
+    slowers = []
+    suppers = []
+    indexes = []
+    flip=True
+    yice = np.asarray(variables["Yicefront"])[0][0]
+
+    ds = open_mdsdataset(fname,prefix=["SHIfwFlx","SALT","THETA"])
+    yindex = np.argmin(np.abs(ds.YC.values-yice))
+    xmin = np.argmin(np.abs(ds.XC.values-140000))
+    xmax = np.argmin(np.abs(ds.XC.values-260000))
+    sNorth = ds.SALT[17:].mean(axis=0)[:,:yindex-3,xmin:xmax].values
+    tNorth = ds.THETA[17:].mean(axis=0)[:,:yindex-3,xmin:xmax].values
+    hfac = ds.hFacC[:,:yindex-3,xmin:xmax].values
+
+    sigma = dens(sNorth,tNorth,0)#.flatten()
+
+    sigma[hfac!=1]=np.nan
+    sNorth[hfac!=1]=np.nan
+    slowers = []
+    suppers = [] 
+    smins = []
+    smaxs = []
+    print(sNorth.shape)
+    for i in range(sNorth.shape[1]):
+        for j in range(sNorth.shape[2]):
+            s = sNorth[:,i,j]
+            sig = sigma[:,i,j]
+            z = zz
+            if (s>0).sum()>10:
+                z=z[~np.isnan(s)]
+                sig=sig[~np.isnan(s)]
+                s=s[~np.isnan(s)]
+
+                zz_i = np.linspace(np.min(z),np.max(z),num=int(np.max(z)-np.min(z)))
+                s = np.interp(zz_i,z[::-1],s[::-1])
+                sig = np.interp(zz_i,z[::-1],sig[::-1])
+                z=zz_i
+                s = s[::-1]
+                sig = sig[::-1]
+                z = z[::-1]
+
+                if np.max(abs(s-s[0]))>0.05:
+                    mldi = np.where(abs(s-s[0])>0.05)[0][0]
+
+                    Supper = np.mean(s[:mldi])
+                    Slower = np.mean(s[mldi:mldi*2])
+                    smins.append(np.min(sig[mldi:]))
+                    smaxs.append(np.max(sig[mldi:]))
+                    slowers.append(Slower)
+                    suppers.append(Supper)
+ 
+    # sigma = sigma.flatten()
+    # plt.imshow(sigma)
+    # plt.colorbar()
+    # plt.savefig('{}.png'.format(shortname))
+    # plt.close()
+    saltfluxvals = np.asarray(variables["saltfluxvals"])
+    dx = np.gradient(ds.XG)[0]
+    dy = np.gradient(ds.YG)[0] 
+    rho0 = 1025
+    meltsaltflux = np.sum(ds.SHIfwFlx,axis=[1,2]).values*dx*dy*34.5
+    polynaflux = np.sum(saltfluxvals*dx*dy)
+
+
+    Btotal = (-np.mean(meltsaltflux)+np.mean(polynaflux))/rho0*9.8*(7.8*10**(-4))
+
+    z_midshelf = (zgl+(abs(zgl)-200)/2)
+    depth = np.abs(np.asarray(variables["h"]))
+    Hents = depth[:,yindex][depth[:,yindex]>200]
+    beta = rho_s_t(34.5,-1.9,abs(z_midshelf))[0]
+    f = 1.3*10**-4
+    # rhoanoms = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(Hents**2)))
+    rhomean = (rho0/9.8)*np.sqrt(f*(np.abs(Btotal)/(np.mean(Hents)**2)))
+
+    # print(np.min(sigma),np.max(sigma))
+    # ax1.scatter(np.nanmean(sigma),np.nanquantile(sigma,0.9)-np.nanquantile(sigma,0.1),marker=marker,c=color,s=125,label=shortname)
+    # ax1.scatter(sigma,zz,marker=marker,c=color,s=125,label=shortname)
+    ax1.scatter(rhomean,np.max(smaxs)-np.min(smins),marker=marker,c=color,s=125,label=shortname)
+    # plt.hist(sigma)
+    # plt.savefig('{}.png'.format(shortname))
+    # plt.close()
+
+def saltLayerDiff(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
+
+    variables = grabMatVars(fname,("Hshelf","Xeast","Xwest","randtopog_height","Yicefront","Zcdw_pt_South","Zcdw_pt_shelf","tEast","sEast","icedraft","zz","h","yy","xx","saltfluxvals"))
+    shortname,_ = outPath(fname)
+    shortname = shortname.split("|")[1]
+    print(shortname)
+    icedraft = np.asarray(variables["icedraft"])
+    ## crude but accurate way to calculate the grounding line depth
+    zgl = np.nanmin(icedraft)
+
+    ds = open_mdsdataset(fname,prefix=["SHIfwFlx","THETA","SALT"])
+
+    #pull in timeseries data for returning the diagnosed meltrate 
+    data = timeSeries(fname)
+
+    #We care about the mean of the model output
+    ##Pull in relevant geometric parameters and hydrographic forcings
+    zz = np.asarray(variables["zz"])[0]
+
+
+    # f is defined in the model setup
+    Cp = 4186
+    If = 334000
+    z_midshelf = (zgl+(abs(zgl)-200)/2)
+    sNorth = ds.SALT[17:].mean(axis=0)[:,:70,:].values
+    hfac = ds.hFacC[:,:70,:].values
+
+    sNorth[hfac!=1] = np.nan
+    sNorth = np.nanmean(sNorth,axis=2)
+
+    slowers = []
+    suppers = []
+    indexes = []
+    flip=True
+    for i in range(sNorth.shape[1]):
+        s = sNorth[:,i]
+        z = zz
+        if (s>0).sum()>10:
+
+            z=z[~np.isnan(s)]
+            s=s[~np.isnan(s)]
+
+            zz_i = np.linspace(np.min(z),np.max(z),num=int(np.max(z)-np.min(z)))
+            s = np.interp(zz_i,z[::-1],s[::-1])
+            z=zz_i
+            s = s[::-1]
+            z = z[::-1]
+
+            if np.max(abs(s-s[0]))>0.05:
+                mldi = np.where(abs(s-s[0])>0.05)[0][0]
+                
+                Supper = np.mean(s[:mldi])
+                Slower = np.mean(s[mldi:mldi*2])
+                # Tf = fpAtGl(z_midshelf,Slower)
+                Tf = fpAtGl(z[0],Slower)
+                Tpolyna = -1.9
+                D = (1-(Cp/If)*(Tf-(Tpolyna))/4)
+                # print(np.mean(s[:mldi])/np.mean(s[mldi:mldi*2]))
+                slowers.append(Slower)
+                suppers.append(Supper)
+                indexes.append(i)
+                M = ((-((Slower/Supper)-1)/(Cp/If))/(Tf-(Tpolyna)))**-1
+                # if flip:
+                #     plt.scatter(Slower/D,Supper,marker=marker,c=color,s=125,label=shortname)
+                #     flip = False
+                # else:
+                #     plt.scatter(Slower/D,Supper,marker=marker,c=color,s=125)
+
+    Tf = fpAtGl(z_midshelf,np.mean(slowers))
+    Tpolyna = -1.9
+    D = (1-(Cp/If)*(Tf-(Tpolyna))/3.5)
+    ax1.scatter(np.mean(slowers)/D,np.mean(suppers),marker=marker,c=color,s=125,label=shortname)
+    
 def connectionPlot(fname,xval,fig,ax1,title="",color="blue",marker="o",count=0):
     data = timeSeries(fname)
     variables = grabMatVars(fname,("Xeast","Xwest","Yicefront","saltfluxvals"))
@@ -1165,8 +1349,8 @@ def folderMap(runsdict,savepath=False):
     ax2.set_xlabel(r"$\dot{m}_{\mathrm{connected}} (m/yr)$",fontsize=24)
     ax2.set_ylabel(r'$\dot{m}_{\mathrm{model}} (m/yr)$',fontsize=24)
     ax2.plot([0,12],[0,12],linestyle="dashed")
-    # ax2.set_xlim(0,3)
-    # ax2.set_ylim(0,3)
+    ax2.set_xlim(0,3)
+    ax2.set_ylim(0,3)
     ax2.grid(True)
 
     ax1.set_xlabel(r"$\dot{m}_{\mathrm{disconnected}} (m/yr)$",fontsize=24)
@@ -1184,6 +1368,9 @@ def folderMap(runsdict,savepath=False):
 
     ax1.legend(loc="lower right")
     ax2.legend(loc="lower right")
+
+    ax1.tick_params(axis='both', which='major', labelsize=18)
+    ax2.tick_params(axis='both', which='major', labelsize=18)
 
 def folderMapCombined(runsdict,savepath=False):
     fig,(ax1) = plt.subplots(1,1,figsize=(10,8))
@@ -1281,7 +1468,7 @@ def folderMapCombined(runsdict,savepath=False):
 
 def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "",threed=False,axx=1,axy=1):
     if not threed:
-        fig,axises = plt.subplots(axx,axy,figsize=(16*0.5,14*0.5))
+        fig,axises = plt.subplots(axx,axy,figsize=(16*0.5,16*0.5))
     else:
         fig = plt.gcf()
         axises = plt.figure().add_subplot(projection='3d')
@@ -1317,7 +1504,8 @@ def folderMapGeneric(func,runsdict,savepath=False,xlabel="",ylabel="",zlabel = "
     plt.ylabel(ylabel,fontsize=24)
     if threed:
         plt.gca().set_zlabel(zlabel,fontsize=24)
-    plt.gca().tick_params(axis='both', which='major', labelsize=12)
+    plt.gca().tick_params(axis='both', which='major', labelsize=18)
+
     #plt.axhline(y=0)
     #plt.axvline(x=-250)
     plt.legend()
@@ -1689,12 +1877,12 @@ def overturning_plot(fname,name):
     # plt.gca().streamplot(X,Y,-np.diff(transport.values,axis=1)/np.diff(Y),-np.diff(transport.values,axis=0,prepend=0)/np.diff(X,prepend=0),start_points=start_points)
     plt.xlim(0,190)
     plt.ylim(-1000,0)
-    plt.gca().set_xlabel('y (km)', fontsize=24)
-    plt.gca().set_ylabel('z (m)', fontsize=24)
-    plt.gca().tick_params(axis='both', labelsize=16)
+    plt.gca().set_xlabel('y (km)', fontsize=36)
+    plt.gca().set_ylabel('z (m)', fontsize=36)
+    plt.gca().tick_params(axis='both', labelsize=24)
     cbar = plt.colorbar(im,label="$Stream function (Sv)$")
-    cbar.ax.yaxis.label.set_size(24)
-    cbar.ax.tick_params(axis='both', labelsize=16)
+    cbar.ax.yaxis.label.set_size(36)
+    cbar.ax.tick_params(axis='both', labelsize=24)
 
     plt.tight_layout()
     print(name)

@@ -268,7 +268,8 @@ def FStheory(fname,xval,regime = "default",shelf=False):
         ## The equations are in the SI but this solves for g'_dc
         rhomin,rhomax = (rho0/9.8)*(f*(-Btotal))**(1/2)/(np.nanmax(Hents)),(rho0/9.8)*(f*(-Btotal))**(1/2)/(np.nanmin(Hents))
         rhomean = (rho0/9.8)*(f*(-Btotal))**(1/2)/(np.nanmean(Hents))
-        stratterm = rhomax-rhomin
+        # stratterm = rhomax-rhomin
+        stratterm = rhomean
         Spolyna = Socean + rhomean/beta
         Tf = fpAtGl(z_midshelf,Spolyna)
         Tpolyna = Tocean
@@ -277,7 +278,7 @@ def FStheory(fname,xval,regime = "default",shelf=False):
         stats = {}
 
         # 0.2 is the alpha calculated from regresssing onto these same equations but setting Bpolyna to the diagnosed Bpolyna
-        alpha = 0.25
+        alpha = 0.235
         C =  (alpha*(rho0*Cp)/(rhoi*If*W0))
         # This freezing temperature is not the bulk layer temp used in the g' calculation but rather the temperature of water leaving the cavity
         Tf = fpAtGl(200,Spolyna)
